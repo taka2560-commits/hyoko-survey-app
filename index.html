@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>OSR標高管理 Pro v9 (A4印刷・PDF版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PDFをクライアントサイドで直接生成するための信頼性の高いライブラリを導入 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- ==================== ホーム画面追加用 メタ設定 (PWA対応) ==================== -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon.png">
+    <!-- iOS (Safari) 用全画面アプリ化設定 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="OSR標高管理">
+    <!-- Android (Chrome) 用全画面アプリ化設定 -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#ffffff" id="meta-theme-color">
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').then(registration => {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                }).catch(err => {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
+        tailwind.config = {
+            darkMode: 'class'
+        }
+    </script>
+    <style>
+        /* モバイル対応：アドレスバーの自動高さ調節(dvh)を全身に適用 */
+        body {
+            user-select: none;
+            -webkit-user-select: none;
+            transition: background-color 0.15s ease, color 0.15s ease;
+            height: 100dvh;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        /* ==================== ライトモード (屋外・直射日光用) ==================== */
+        html:not(.dark) body {
+            background-color: #ffffff;
+            color: #000000;
+        }
+        html:not(.dark) .survey-table, 
+        html:not(.dark) .survey-table th, 
+        html:not(.dark) .survey-table td {
+            border: 2px solid #000000 !important;
+        }
+        html:not(.dark) .row-active {
+            background-color: #fef08a !important; /* 安全イエロー */
+            outline: 3px solid #ca8a04 !important;
+            color: #000000 !important;
+        }
+        html:not(.dark) .lcd-display {
+            background-color: #bbf7d0; /* 高輝度ライトグリーン */
+            border: 3px solid #000000;
+            color: #14532d;
+            text-shadow: 1px 1px 0px rgba(255, 255, 255, 0.4);
+        }
+        html:not(.dark) .key-btn {
+            background-color: #f1f5f9;
+            border: 2px solid #0f172a;
+            color: #000000;
+        }
+        html:not(.dark) .key-btn:active {
+            background-color: #cbd5e1 !important;
+        }
+        html:not(.dark) .key-copy {
+            background-color: #ffedd5 !important;
+            border: 2px solid #c2410c !important;
+            color: #ea580c !important;
+        }
+        html:not(.dark) .key-copy:active {
+            background-color: #fed7aa !important;
+        }
+        html:not(.dark) .key-enter {
+            background-color: #10b981 !important;
+            border: 2px solid #047857 !important;
+            color: #ffffff !important;
+        }
+
+        /* ==================== ダークモード (屋内・標準用) ==================== */
+        html.dark body {
+            background-color: #090d16;
+            color: #f1f5f9;
+        }
+        html.dark .survey-table, 
+        html.dark .survey-table th, 
+        html.dark .survey-table td {
+            border: 1px solid #334155 !important;
+        }
+        html.dark .row-active {
+            background-color: #1e3a8a !important; /* 深いブルー */
+            outline: 2px solid #3b82f6 !important;
+            color: #ffffff !important;
+        }
+        html.dark .lcd-display {
+            background-color: #0b1329;
+            border: 2px solid #3b82f6;
+            color: #4ade80; /* ネオングリーン */
+            box-shadow: inset 0 0 8px rgba(74, 222, 128, 0.2);
+        }
+        html.dark .key-btn {
+            background-color: #1e293b;
+            border: 1px solid #475569;
+            color: #f1f5f9;
+        }
+        html.dark .key-btn:active {
+            background-color: #475569 !important;
+        }
+        html.dark .key-copy {
+            background-color: #431407 !important;
+            border: 1px solid #ea580c !important;
+            color: #fdba74 !important;
+        }
+        html.dark .key-copy:active {
+            background-color: #7c2d12 !important;
+        }
+        html.dark .key-enter {
+            background-color: #059669 !important;
+            border: 1px solid #10b981 !important;
+            color: #ffffff !important;
+        }
+
+        /* ==================== 10キーパッド共通 ==================== */
+        .key-btn {
+            font-weight: 900;
+            transition: transform 0.05s ease, background-color 0.05s ease;
+        }
+        .key-btn:active {
+            transform: scale(0.93);
+        }
+
+        /* ==================== 印刷・PDF表示用 A4横向きシミュレーション ==================== */
+        #print-preview-container {
+            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", sans-serif;
+        }
+        .print-page {
+            width: 297mm; /* A4横サイズ */
+            height: 208mm; /* 余白・ヘッダー分の誤差を考慮して高さを208mmに微調整 */
+            padding: 10mm 10mm; 
+            margin: 0 auto;
+            background: #ffffff;
+            color: #000000;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* 2ページ目へのはみ出しを確実に防止 */
+        }
+        
+        /* 横長レイアウトを十分に活かしたゆとりのあるテーブル設計 */
+        .print-table {
+            table-layout: fixed;
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .print-table th, .print-table td {
+            border: 1px solid #000000 !important;
+            font-size: 11px; /* 9pxから11pxに大きくし、直感的に見やすく改良 */
+            padding: 5.5px 4px; /* A4横の高さに美しく収まるパディング */
+            line-height: 1.2;
+            word-wrap: break-word;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .print-table th {
+            background-color: #f1f5f9 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            font-weight: bold;
+        }
+
+        /* 印刷時のCSS制御 - A4横（Landscape）対応 */
+        @media print {
+            @page {
+                size: A4 landscape; /* 横向き出力を強制 */
+                margin: 0; 
+            }
+            body {
+                background: #ffffff !important;
+                color: #000000 !important;
+            }
+            #main-app-container {
+                display: none !important;
+            }
+            #print-preview-container {
+                display: block !important;
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+            .print-page {
+                box-shadow: none !important;
+                margin: 0 !important;
+                padding: 10mm 10mm !important;
+                width: 297mm !important;
+                height: 210mm !important;
+                page-break-inside: avoid;
+                page-break-after: avoid;
+                page-break-before: avoid;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="overflow-hidden flex flex-col p-1.5 md:p-2">
+
+    <!-- メインアプリケーション画面 (dvhを完全に適用して画面一杯に固定) -->
+    <div id="main-app-container" class="h-full max-h-[100dvh] flex flex-col justify-between w-full overflow-hidden">
+        <!-- ヘッダーエリア (縮まないように固定) -->
+        <div class="bg-slate-100 dark:bg-slate-900 p-1.5 md:p-2 rounded-xl border-2 border-slate-950 dark:border-slate-800 mb-1.5 shrink-0 shadow">
+            <div class="flex justify-between items-center gap-1 flex-wrap">
+                <!-- プロジェクト選択 & 管理 -->
+                <div class="flex-grow min-w-[140px] flex items-center gap-1">
+                    <div class="w-full">
+                        <select id="project-selector" onchange="selectProject(this.value)" class="bg-white dark:bg-slate-950 text-slate-950 dark:text-yellow-400 font-black py-1 px-1.5 rounded border-2 border-slate-950 dark:border-slate-700 text-xs focus:outline-none w-full max-w-[150px]">
+                            <!-- JSで動的に追加 -->
+                        </select>
+                    </div>
+                    <button onclick="openProjectManager()" class="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 px-2 py-1 rounded border-2 border-slate-950 dark:border-slate-700 text-[10px] md:text-xs font-black shrink-0 text-slate-950 dark:text-slate-200">
+                        ⚙️ 管理
+                    </button>
+                </div>
+                
+                <!-- PDF出力、テーマ切替、スマホ登録、月次 -->
+                <div class="flex items-center gap-1 shrink-0 mt-1 md:mt-0 ml-auto">
+                    <!-- スマホ向け追加ガイドボタン -->
+                    <button onclick="openGuideModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] md:text-xs py-1.5 px-2 rounded-lg border-2 border-indigo-700 shadow active:scale-95 transition-all">
+                        📱 スマホ登録手順
+                    </button>
+
+                    <!-- PDF印刷プレビューボタン -->
+                    <button onclick="openPrintPreview()" class="bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] md:text-xs py-1.5 px-2 rounded-lg border-2 border-blue-800 dark:border-blue-500 shadow active:scale-95 transition-all">
+                        📄 PDF出力
+                    </button>
+
+                    <!-- 画面モード切替 -->
+                    <button id="theme-toggle-btn" onclick="toggleTheme()" class="bg-slate-200 dark:bg-slate-800 text-slate-950 dark:text-slate-100 font-black text-[10px] md:text-xs py-1.5 px-2 rounded border-2 border-slate-950 dark:border-slate-700 active:scale-95 shadow transition-all">
+                        🌙 ダーク
+                    </button>
+
+                    <div class="text-right flex items-center gap-1 bg-white dark:bg-slate-950 px-1 py-0.5 rounded border border-slate-300 dark:border-slate-800">
+                        <input type="date" id="measure-date" onchange="updateMeasureDate(this.value)" class="bg-transparent text-slate-950 dark:text-slate-200 font-black text-[10px] md:text-xs focus:outline-none py-0.5 w-[90px] md:w-[120px]">
+                    </div>
+
+                    <button onclick="confirmMonthlyReset()" class="bg-amber-500 dark:bg-amber-600 hover:bg-amber-600 dark:hover:bg-amber-700 text-slate-950 dark:text-white font-black text-[10px] md:text-xs py-1.5 px-2 rounded border-2 border-slate-950 dark:border-amber-700 shadow active:scale-95 transition-all">
+                        月次更新
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- タブ切り替え & 整理モード (縮まないように固定) -->
+        <div class="flex justify-between items-center gap-1.5 mb-1.5 shrink-0">
+            <div class="flex gap-1 flex-grow">
+                <button id="tab-0" onclick="switchTab(0)" class="flex-1 py-2 text-xs rounded-lg font-black transition-all shadow-md bg-blue-700 dark:bg-blue-600 text-white border-2 border-slate-950 dark:border-blue-500">
+                    📍 水準点鋲
+                </button>
+                <button id="tab-1" onclick="switchTab(1)" class="flex-1 py-2 text-xs rounded-lg font-black transition-all shadow bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-300 border-2 border-slate-950 dark:border-slate-700">
+                    🏷️ 測量シール
+                </button>
+            </div>
+            <button id="edit-mode-btn" onclick="toggleEditMode()" class="bg-slate-200 dark:bg-slate-800 border-2 border-slate-950 dark:border-slate-700 text-slate-950 dark:text-slate-200 px-2.5 py-2 rounded-lg text-xs font-black shrink-0 flex items-center gap-1 active:scale-95 transition-all">
+                ✏️ <span id="edit-mode-label">追加・削除</span>
+            </button>
+        </div>
+
+        <!-- テーブル一覧エリア (ここが自動で伸縮し、かつ内部のみ縦スクロール可能) -->
+        <div class="flex-1 overflow-y-auto bg-white dark:bg-slate-950 border-2 border-slate-950 dark:border-slate-800 rounded-xl mb-1.5 shadow flex flex-col min-h-0">
+            <div class="flex-grow overflow-y-auto w-full">
+                <table class="survey-table w-full text-left border-collapse table-fixed">
+                    <thead class="bg-slate-100 dark:bg-slate-900 sticky top-0 text-slate-950 dark:text-slate-300 text-xs z-10 font-black border-b border-slate-300 dark:border-slate-800">
+                        <tr>
+                            <th id="th-select" class="py-2.5 px-1 text-center w-[12%] transition-all duration-300 hidden bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400">削除</th>
+                            <th class="py-2.5 px-2 text-left w-[22%] text-[11px]">点名</th>
+                            <th class="py-2.5 px-1 text-right w-[17%] text-[11px]">初期値</th>
+                            <th class="py-2.5 px-1 text-right w-[17%] text-[11px]">前月</th>
+                            <th class="py-2.5 px-1 text-right w-[17%] text-[11px]">当月</th>
+                            <th id="th-remarks" class="py-2.5 px-2 text-left w-[17%] text-[11px]">備考</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body" class="text-xs font-bold divide-y divide-slate-200 dark:divide-slate-850">
+                        <!-- JS動的生成 -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- コントロールバー (整理モードの時のみ表示) -->
+            <div id="table-controls" class="p-1.5 text-center bg-slate-50 dark:bg-slate-900/40 mt-auto border-t-2 border-slate-950 dark:border-slate-800 flex justify-center gap-2 shrink-0">
+                <button id="normal-add-btn" onclick="addNewPoint()" class="inline-flex items-center gap-1.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 active:scale-95 text-slate-950 dark:text-slate-200 font-black text-[10px] md:text-xs py-1.5 px-3 rounded-lg border-2 border-slate-950 dark:border-slate-700 transition-all">
+                    <span>➕</span> 新しい点名を追加
+                </button>
+                <button id="delete-selected-btn" onclick="deleteCheckedPoints()" class="hidden inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black text-xs py-1.5 px-3 rounded-lg border-2 border-red-950 transition-all shadow-md">
+                    <span>🗑️</span> 選択した点を一括削除する（確定）
+                </button>
+            </div>
+        </div>
+
+        <!-- 10キーパッドエリア (高さを確実にピクセル固定し、画面最下部にピタッと吸着) -->
+        <div id="keypad-panel" class="shrink-0 bg-slate-100 dark:bg-slate-900 p-2 rounded-xl border-2 border-slate-950 dark:border-slate-800 shadow-lg h-[225px] md:h-[265px] flex flex-col justify-between">
+            <div class="flex justify-between items-center px-1 mb-1">
+                <span class="text-[10px] md:text-xs font-black text-slate-900 dark:text-slate-400">入力先: <strong id="active-point-name" class="text-blue-700 dark:text-sky-400 text-xs md:text-sm">---</strong></span>
+                <span class="text-[10px] md:text-xs font-black text-slate-900 dark:text-slate-400">入力: <strong id="temp-display" class="text-emerald-800 dark:text-green-400 text-sm md:text-lg font-mono">---</strong></span>
+            </div>
+            
+            <div class="lcd-display w-full rounded-lg py-1 px-3 text-right text-lg md:text-2xl font-mono font-black mb-1.5 shadow-inner leading-none h-[28px] md:h-[38px] flex items-center justify-end">
+                <span id="lcd-value">0.000</span>
+            </div>
+
+            <!-- スマホ画面縦サイズに合わせて10キーの押しやすさを保ちつつサイズ安定化 -->
+            <div class="grid grid-cols-4 gap-1 flex-grow">
+                <button class="key-btn rounded-lg text-lg md:text-xl" onclick="press('7')">7</button>
+                <button class="key-btn rounded-lg text-lg md:text-xl" onclick="press('8')">8</button>
+                <button class="key-btn rounded-lg text-lg md:text-xl" onclick="press('9')">9</button>
+                <button class="key-btn rounded-lg text-sm md:text-base bg-red-200 dark:bg-red-950/40 text-red-900 dark:text-red-400 border border-red-950 dark:border-red-900 hover:bg-red-300" onclick="press('C')">C</button>
+
+                <button class="key-btn rounded-lg text-lg md:text-xl" onclick="press('4')">4</button>
+                <button class="key-btn rounded-lg text-lg md:text-xl" onclick="press('5')">5</button>
+                <button class="key-btn rounded-lg text-lg md:text-xl" onclick="press('6')">6</button>
+                <button class="key-btn rounded-lg text-xs md:text-sm bg-slate-300 dark:bg-slate-750" onclick="press('BS')">BS</button>
+
+                <button class="key-btn rounded-lg text-lg md:text-xl" onclick="press('1')">1</button>
+                <button class="key-btn rounded-lg text-lg md:text-xl" onclick="press('2')">2</button>
+                <button class="key-btn rounded-lg text-lg md:text-xl" onclick="press('3')">3</button>
+                <button class="key-btn rounded-lg text-xs md:text-sm bg-slate-300 dark:bg-slate-750" onclick="press('+/-')">+/-</button>
+
+                <button class="key-btn key-copy rounded-lg text-[9px] md:text-[10px] font-black leading-tight flex flex-col justify-center items-center" onclick="press('COPY')">
+                    <span>前月値</span><span>コピー</span>
+                </button>
+                <button class="key-btn rounded-lg text-lg md:text-xl" onclick="press('0')">0</button>
+                <button class="key-btn rounded-lg text-lg md:text-xl" onclick="press('.')">.</button>
+                <button class="key-btn key-enter rounded-lg text-xs md:text-sm font-black shadow-md" onclick="press('ENTER')">ENTER</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== A4サイズ 印刷プレビュー画面 ==================== -->
+    <div id="print-preview-container" class="hidden fixed inset-0 z-50 bg-slate-800 overflow-y-auto p-4 no-print">
+        <!-- プレビュー用トップバー -->
+        <div class="max-w-[297mm] mx-auto bg-slate-900 text-white p-3 rounded-t-xl border-x-2 border-t-2 border-slate-950 flex justify-between items-center shadow-lg">
+            <span class="text-xs font-black text-yellow-400">📄 PDF印刷プレビュー (A4横サイズ)</span>
+            <div class="flex gap-2">
+                <!-- 直接PDFをバックグラウンド生成してダウンロードするボタン -->
+                <button id="pdf-download-btn" onclick="downloadPDF(event)" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs py-1.5 px-3 rounded border border-emerald-700 flex items-center gap-1 active:scale-95 transition-all">
+                    📥 PDFダウンロード
+                </button>
+                <!-- 従来の印刷機能 -->
+                <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-500 text-white font-black text-xs py-1.5 px-3 rounded border border-blue-700 flex items-center gap-1 active:scale-95 transition-all">
+                    🖨️ 通常の印刷
+                </button>
+                <button onclick="closePrintPreview()" class="bg-slate-700 hover:bg-slate-600 text-white font-black text-xs py-1.5 px-3 rounded border border-slate-800 active:scale-95 transition-all">
+                    閉じる
+                </button>
+            </div>
+        </div>
+
+        <!-- A4横シミュレータ用紙 -->
+        <div class="print-page shadow-2xl relative">
+            <!-- 帳票ヘッダー -->
+            <div class="text-center mb-4 pb-2 border-b-2 border-double border-slate-950">
+                <h2 id="print-doc-title" class="text-base font-black tracking-wide text-slate-950">OSRプロジェクト新築工事 施工用基準レベル標高値(OP)管理表</h2>
+                <div class="flex justify-between items-center text-[10px] text-slate-800 mt-1.5 font-bold">
+                    <div>工事名: <span id="print-project-name" class="underline">OSRプロジェクト新築工事</span></div>
+                    <div>計測日: <span id="print-measure-date" class="underline">2026年5月18日</span></div>
+                </div>
+            </div>
+
+            <!-- 2カラムコンテンツエリア -->
+            <div class="grid grid-cols-2 gap-3">
+                <!-- 左カラム: 水準点鋲 -->
+                <div>
+                    <h3 class="text-[10px] font-black bg-blue-100 border border-slate-950 text-blue-900 px-2 py-1 mb-1.5 flex justify-between">
+                        <span>📍 水準点鋲 一覧 (基準高)</span>
+                        <span class="text-[9px]">単位: O.P.(m)</span>
+                    </h3>
+                    <table class="print-table">
+                        <thead>
+                            <tr>
+                                <th class="w-[10%] text-center">区分</th>
+                                <th class="w-[18%] text-left">点名</th>
+                                <th class="w-[16%] text-right">初期(OP)</th>
+                                <th class="w-[16%] text-right">前月(OP)</th>
+                                <th class="w-[16%] text-right">当月(OP)</th>
+                                <th class="w-[13%] text-right">変位差</th>
+                                <th class="w-[11%] text-left">備考</th>
+                            </tr>
+                        </thead>
+                        <tbody id="print-tbody-tab0">
+                            <!-- JSで生成 -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 右カラム: 測量シール -->
+                <div>
+                    <h3 class="text-[10px] font-black bg-emerald-100 border border-slate-950 text-emerald-900 px-2 py-1 mb-1.5 flex justify-between">
+                        <span>🏷️ 測量シール 一覧 (管理点)</span>
+                        <span class="text-[9px]">単位: O.P.(m)</span>
+                    </h3>
+                    <table class="print-table">
+                        <thead>
+                            <tr>
+                                <th class="w-[10%] text-center">区分</th>
+                                <th class="w-[18%] text-left">点名</th>
+                                <th class="w-[16%] text-right">初期(OP)</th>
+                                <th class="w-[16%] text-right">前月(OP)</th>
+                                <th class="w-[16%] text-right">当月(OP)</th>
+                                <th class="w-[13%] text-right">変位差</th>
+                                <th class="w-[11%] text-left">備考</th>
+                            </tr>
+                        </thead>
+                        <tbody id="print-tbody-tab1">
+                            <!-- JSで生成 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 📱 スマホ登録手順説明用 モーダル ==================== -->
+    <div id="guide-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80">
+        <div class="bg-white dark:bg-slate-900 border-2 border-slate-950 dark:border-slate-800 rounded-2xl p-4 max-w-sm w-full shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-800 mb-3">
+                <h3 class="text-sm font-black text-blue-600 dark:text-yellow-400">📱 スマホのホーム画面に追加する方法</h3>
+                <button onclick="closeGuideModal()" class="text-slate-900 dark:text-slate-400 hover:text-red-500 font-bold text-lg">✕</button>
+            </div>
+            
+            <div class="overflow-y-auto text-xs space-y-3 font-bold text-slate-800 dark:text-slate-200 mb-4 leading-relaxed">
+                <div class="bg-blue-50 dark:bg-slate-950 p-2.5 rounded-lg border border-blue-200 dark:border-slate-800">
+                    <p class="text-blue-800 dark:text-blue-400 text-xs mb-1">【重要】登録時のコツ</p>
+                    <p class="text-[10px]">ホーム画面からアイコンで開くことで、ブラウザのアドレスバーが消えて全画面（アプリモード）で起動し、テンキーが更に見やすくなります！</p>
+                </div>
+                
+                <div>
+                    <p class="text-slate-900 dark:text-white border-l-4 border-blue-600 pl-1.5 mb-1 text-xs">🍏 iPhone (Safariで開いている場合)</p>
+                    <ol class="list-decimal list-inside pl-1 text-[11px] space-y-0.5">
+                        <li>画面下の <span class="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">共有マーク（四角に↑）</span> をタップ。</li>
+                        <li>メニュー内の <span class="text-blue-600 dark:text-blue-400 font-black">「ホーム画面に追加」</span> を選択。</li>
+                        <li>そのまま右上の「追加」を押します。</li>
+                    </ol>
+                </div>
+
+                <div>
+                    <p class="text-slate-900 dark:text-white border-l-4 border-emerald-600 pl-1.5 mb-1 text-xs">🤖 Android (Chrome/Galaxyブラウザなど)</p>
+                    <ol class="list-decimal list-inside pl-1 text-[11px] space-y-0.5">
+                        <li>右上の <span class="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">縦の3点リーダー（︙）</span> をタップ。</li>
+                        <li>メニューから <span class="text-emerald-600 dark:text-emerald-400 font-black">「アプリをインストール」</span> または <span class="text-emerald-600 dark:text-emerald-400 font-black">「ホーム画面に追加」</span> を選択して完了です。</li>
+                    </ol>
+                </div>
+            </div>
+
+            <button onclick="closeGuideModal()" class="w-full bg-slate-900 dark:bg-slate-800 text-white font-black text-xs py-2.5 rounded-lg border-2 border-slate-950 dark:border-slate-700 active:scale-95 transition-all">
+                了解して閉じる
+            </button>
+        </div>
+    </div>
+
+    <!-- プロジェクト管理モーダル -->
+    <div id="project-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/60 dark:bg-black/85">
+        <div class="bg-white dark:bg-slate-900 border-2 border-slate-950 dark:border-slate-800 rounded-2xl p-5 max-w-md w-full shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center pb-3 border-b-2 border-slate-950 dark:border-slate-800 mb-4">
+                <h3 class="text-md font-black text-slate-950 dark:text-slate-100">🏢 現場・プロジェクト設定</h3>
+                <button onclick="closeProjectManager()" class="text-slate-900 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 text-xl font-black">✕</button>
+            </div>
+            
+            <div class="flex-grow overflow-y-auto mb-4 bg-slate-50 dark:bg-slate-950 p-2.5 rounded-lg border-2 border-slate-950 dark:border-slate-850">
+                <label class="block text-xs text-slate-900 dark:text-slate-400 mb-2 font-black">登録済みの現場一覧（削除は左にチェック）</label>
+                <div id="project-list" class="space-y-2"></div>
+            </div>
+
+            <div class="bg-slate-50 dark:bg-slate-950 p-3 rounded-lg border-2 border-slate-200 dark:border-slate-800 mb-4">
+                <label class="block text-xs text-slate-900 dark:text-slate-400 mb-1 font-black">新規現場の追加</label>
+                <div class="flex gap-2">
+                    <input type="text" id="new-project-name" placeholder="例：新港湾整備工事" class="flex-grow bg-white dark:bg-slate-900 border-2 border-slate-950 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-950 dark:text-slate-100 font-black focus:outline-none">
+                    <button onclick="addNewProject()" class="bg-blue-600 text-white font-black text-xs py-1.5 px-3 rounded border-2 border-slate-950 dark:border-blue-500 transition-all active:scale-95">
+                        追加
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex justify-between gap-3 pt-2 border-t-2 border-slate-950 dark:border-slate-800">
+                <button onclick="deleteCheckedProjects()" class="bg-red-600 text-white font-black text-xs py-2 px-3 rounded border-2 border-red-950 active:scale-95 transition-all">
+                    🗑️ 選択した現場を削除
+                </button>
+                <button onclick="closeProjectManager()" class="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-950 dark:text-slate-200 border-2 border-slate-950 dark:border-slate-700 font-black text-xs py-2 px-4 rounded transition-all">
+                    閉じる
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 汎用カスタム確認モーダル -->
+    <div id="custom-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 dark:bg-black/80">
+        <div class="bg-white dark:bg-slate-900 border-2 border-slate-950 dark:border-slate-750 rounded-xl p-5 max-w-sm w-full shadow-2xl">
+            <h3 id="modal-title" class="text-md font-black text-red-600 dark:text-red-400 mb-2">確認</h3>
+            <p id="modal-message" class="text-xs font-bold text-slate-900 dark:text-slate-300 mb-5 leading-relaxed">メッセージ内容</p>
+            <div class="flex justify-end gap-3">
+                <button id="modal-cancel-btn" onclick="closeModal()" class="px-4 py-2 bg-slate-200 dark:bg-slate-850 border-2 border-slate-950 dark:border-slate-700 rounded-lg font-black text-slate-900 dark:text-slate-200 text-xs active:scale-95 transition-all">キャンセル</button>
+                <button id="modal-confirm-btn" class="px-4 py-2 bg-red-600 border-2 border-red-950 rounded-lg font-black text-white text-xs active:scale-95 transition-all">確定する</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // デフォルトマスターデータ構造 (PDF完全準拠)
+        const defaultTabsTemplate = [
+            {
+                tabName: "水準点鋲",
+                data: [
+                    { id: "1014A", init: "+2.393", prev: "+2.393", curr: "", type: "水準点", remarks: "基準与点(2級街区三角点)" },
+                    { id: "T-1", init: "+2.058", prev: "+2.058", curr: "", type: "水準点", remarks: "" },
+                    { id: "T-2", init: "+1.133", prev: "+1.133", curr: "", type: "水準点", remarks: "" },
+                    { id: "T-3", init: "+1.227", prev: "+1.227", curr: "", type: "水準点", remarks: "" },
+                    { id: "T-4", init: "+1.304", prev: "+1.304", curr: "", type: "水準点", remarks: "" },
+                    { id: "T-5", init: "+1.257", prev: "+1.257", curr: "", type: "水準点", remarks: "" },
+                    { id: "T-6", init: "+1.119", prev: "+1.119", curr: "", type: "水準点", remarks: "" },
+                    { id: "T-7", init: "+1.013", prev: "+1.013", curr: "", type: "水準点", remarks: "" },
+                    { id: "T-8", init: "+3.159", prev: "+3.159", curr: "", type: "水準点", remarks: "" },
+                    { id: "T-9", init: "+5.180", prev: "+5.180", curr: "", type: "水準点", remarks: "" },
+                    { id: "T-10", init: "+7.361", prev: "+7.361", curr: "", type: "水準点", remarks: "" },
+                    { id: "T-11", init: "+8.400", prev: "+8.400", curr: "", type: "水準点", remarks: "" },
+                    { id: "T-12", init: "+6.716", prev: "+6.716", curr: "", type: "水準点", remarks: "" },
+                    { id: "T-13", init: "+4.444", prev: "+4.444", curr: "", type: "水準点", remarks: "" },
+                    { id: "T-14", init: "+2.262", prev: "+2.262", curr: "", type: "水準点", remarks: "(T2)" },
+                    { id: "T-15", init: "+1.475", prev: "+1.475", curr: "", type: "水準点", remarks: "" },
+                    { id: "KBM.1", init: "+1.444", prev: "+1.444", curr: "", type: "水準点", remarks: "OSRベンチマーク (T1)" }
+                ]
+            },
+            {
+                tabName: "測量シール",
+                data: [
+                    { id: "SA5", init: "+10.101", prev: "+10.101", curr: "", type: "シール", remarks: "" },
+                    { id: "SA16", init: "+10.104", prev: "+10.104", curr: "", type: "シール", remarks: "" },
+                    { id: "SA6", init: "+10.071", prev: "+10.071", curr: "", type: "シール", remarks: "" },
+                    { id: "SA17", init: "+10.083", prev: "+10.083", curr: "", type: "シール", remarks: "" },
+                    { id: "SA7", init: "+10.084", prev: "+10.084", curr: "", type: "シール", remarks: "" },
+                    { id: "SA18", init: "+10.096", prev: "+10.096", curr: "", type: "シール", remarks: "" },
+                    { id: "SA8", init: "+10.106", prev: "+10.106", curr: "", type: "シール", remarks: "" },
+                    { id: "SA19", init: "+10.089", prev: "+10.089", curr: "", type: "シール", remarks: "" },
+                    { id: "SA9", init: "+10.074", prev: "+10.074", curr: "", type: "シール", remarks: "" }
+                ]
+            }
+        ];
+
+        let appState = {
+            projects: [
+                {
+                    id: "p_1",
+                    name: "OSRプロジェクト新築工事",
+                    measureDate: "2026-05-18",
+                    tabs: JSON.parse(JSON.stringify(defaultTabsTemplate))
+                }
+            ],
+            currentProjectId: "p_1"
+        };
+
+        // ローカルストレージデータの復元
+        const savedState = localStorage.getItem('survey_app_state_v9');
+        if (savedState) {
+            try {
+                appState = JSON.parse(savedState);
+            } catch(e) {
+                console.error("データの復元に失敗しました。");
+            }
+        }
+
+        let currentTab = 0;
+        let currentIndex = 0;
+        let currentInput = "";
+        let isEditMode = false;
+        let isDarkMode = localStorage.getItem('survey_dark_mode') === 'true';
+
+        window.onload = function() {
+            applyTheme();
+            syncSelectors();
+            renderTable();
+            updateActivePointLabel();
+        };
+
+        function applyTheme() {
+            const toggleBtn = document.getElementById('theme-toggle-btn');
+            const metaTheme = document.getElementById('meta-theme-color');
+            if (isDarkMode) {
+                document.documentElement.classList.add('dark');
+                toggleBtn.innerText = "☀️ ライト";
+                if(metaTheme) metaTheme.setAttribute('content', '#090d16');
+            } else {
+                document.documentElement.classList.remove('dark');
+                toggleBtn.innerText = "🌙 ダーク";
+                if(metaTheme) metaTheme.setAttribute('content', '#ffffff');
+            }
+        }
+
+        function toggleTheme() {
+            isDarkMode = !isDarkMode;
+            localStorage.setItem('survey_dark_mode', isDarkMode);
+            applyTheme();
+            renderTable();
+            updateActivePointLabel();
+        }
+
+        function saveState() {
+            localStorage.setItem('survey_app_state_v9', JSON.stringify(appState));
+        }
+
+        // セレクターの同期
+        function syncSelectors() {
+            const selector = document.getElementById('project-selector');
+            selector.innerHTML = appState.projects.map(p => `
+                <option value="${p.id}" ${p.id === appState.currentProjectId ? 'selected' : ''}>${p.name}</option>
+            `).join('');
+
+            const currentProj = getCurrentProject();
+            if (currentProj) {
+                document.getElementById('measure-date').value = currentProj.measureDate || new Date().toISOString().substring(0,10);
+            }
+        }
+
+        function getCurrentProject() {
+            return appState.projects.find(p => p.id === appState.currentProjectId) || appState.projects[0];
+        }
+
+        function selectProject(id) {
+            appState.currentProjectId = id;
+            currentIndex = 0;
+            currentInput = "";
+            saveState();
+            syncSelectors();
+            renderTable();
+            updateActivePointLabel();
+            scrollToActiveRow();
+        }
+
+        function updateMeasureDate(val) {
+            const currentProj = getCurrentProject();
+            if (currentProj) {
+                currentProj.measureDate = val;
+                saveState();
+            }
+        }
+
+        function switchTab(idx) {
+            if (isEditMode) {
+                toggleEditMode();
+            }
+            currentTab = idx;
+            currentIndex = 0;
+            const currentProj = getCurrentProject();
+            currentInput = currentProj.tabs[currentTab].data[currentIndex]?.curr || "";
+            
+            document.getElementById('tab-0').className = idx === 0 ? "flex-1 py-3 text-xs rounded-lg font-black transition-all shadow-md bg-blue-700 dark:bg-blue-600 text-white border-2 border-slate-950 dark:border-blue-500" : "flex-1 py-3 text-xs rounded-lg font-black transition-all shadow bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-300 border-2 border-slate-950 dark:border-slate-700";
+            document.getElementById('tab-1').className = idx === 1 ? "flex-1 py-3 text-xs rounded-lg font-black transition-all shadow-md bg-blue-700 dark:bg-blue-600 text-white border-2 border-slate-950 dark:border-blue-500" : "flex-1 py-3 text-xs rounded-lg font-black transition-all shadow bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-300 border-2 border-slate-950 dark:border-slate-700";
+            
+            renderTable();
+            updateActivePointLabel();
+            scrollToActiveRow();
+        }
+
+        function renderTable() {
+            const body = document.getElementById('table-body');
+            const project = getCurrentProject();
+            if (!project) return;
+            const items = project.tabs[currentTab].data;
+
+            if (items.length === 0) {
+                body.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400 text-xs">データが登録されていません。「新規追加」から追加してください。</td></tr>`;
+                return;
+            }
+
+            const thSelect = document.getElementById('th-select');
+            if (isEditMode) {
+                thSelect.classList.remove('hidden');
+            } else {
+                thSelect.classList.add('hidden');
+            }
+
+            body.innerHTML = items.map((p, i) => {
+                const isSelected = i === currentIndex;
+                const baseClass = i % 2 === 0 ? 'bg-slate-50 dark:bg-slate-900/40' : 'bg-white dark:bg-slate-950';
+                const rowClass = (!isEditMode && isSelected) ? 'row-active' : baseClass;
+                
+                return `
+                    <tr class="${rowClass} hover:bg-slate-100 dark:hover:bg-slate-900/80 transition-all cursor-pointer" onclick="selectRow(${i}, event)">
+                        <!-- 削除選択チェック (整理モード時のみ) -->
+                        <td class="py-3 px-1 text-center align-middle ${isEditMode ? '' : 'hidden'}" onclick="event.stopPropagation();">
+                            <div class="flex items-center justify-center gap-1">
+                                <input type="checkbox" name="delete-checkbox" value="${i}" class="w-5 h-5 rounded accent-red-600 bg-white border-2 border-slate-950 cursor-pointer">
+                            </div>
+                        </td>
+                        <!-- 点名 -->
+                        <td class="py-3 px-2 align-middle font-black text-slate-950 dark:text-slate-100">
+                            ${isEditMode ? `
+                                <input type="text" value="${p.id}" 
+                                       class="bg-white dark:bg-slate-900 border-2 border-slate-950 dark:border-slate-750 rounded px-1.5 py-0.5 text-xs font-mono font-black text-blue-850 dark:text-blue-400 w-full focus:outline-none"
+                                       onchange="updatePointId(${i}, this.value)"
+                                       onclick="event.stopPropagation();">
+                            ` : `
+                                <span class="font-mono text-xs">${p.id}</span>
+                            `}
+                        </td>
+                        <!-- 初期値 -->
+                        <td class="py-3 px-1 text-right font-mono text-slate-500 dark:text-slate-400 text-xs align-middle">
+                            ${isEditMode ? `
+                                <input type="text" value="${p.init || ""}" 
+                                       class="bg-white dark:bg-slate-900 border border-slate-950 dark:border-slate-700 rounded px-1 py-0.5 text-xs font-mono text-right w-full focus:outline-none"
+                                       onchange="updatePointInit(${i}, this.value)"
+                                       onclick="event.stopPropagation();">
+                            ` : `
+                                ${p.init || "---"}
+                            `}
+                        </td>
+                        <!-- 前月値 -->
+                        <td class="py-3 px-1 text-right font-mono text-slate-500 dark:text-slate-400 text-xs align-middle">
+                            ${isEditMode ? `
+                                <input type="text" value="${p.prev || ""}" 
+                                       class="bg-white dark:bg-slate-900 border border-slate-950 dark:border-slate-700 rounded px-1 py-0.5 text-xs font-mono text-right w-full focus:outline-none"
+                                       onchange="updatePointPrev(${i}, this.value)"
+                                       onclick="event.stopPropagation();">
+                            ` : `
+                                ${p.prev || "---"}
+                            `}
+                        </td>
+                        <!-- 当月値 -->
+                        <td class="py-3 px-1 text-right font-mono text-sm font-black text-slate-950 dark:text-slate-100 align-middle">
+                            ${p.curr || ((!isEditMode && isSelected) ? '<span class="text-slate-450 dark:text-slate-600 animate-pulse">0.000</span>' : '---')}
+                        </td>
+                        <!-- 備考 -->
+                        <td class="py-3 px-2 text-left font-bold text-xs align-middle">
+                            <input type="text" value="${p.remarks || ""}" 
+                                   placeholder="備考を追加..." 
+                                   class="bg-transparent text-slate-800 dark:text-slate-300 w-full focus:outline-none border-b border-transparent focus:border-blue-500 font-normal py-0.5"
+                                   onchange="updatePointRemarks(${i}, this.value)"
+                                   onclick="event.stopPropagation();">
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function selectRow(idx, event) {
+            if (isEditMode) return; 
+            currentIndex = idx;
+            const project = getCurrentProject();
+            currentInput = project.tabs[currentTab].data[currentIndex]?.curr || "";
+            renderTable();
+            updateActivePointLabel();
+        }
+
+        function toggleEditMode() {
+            isEditMode = !isEditMode;
+            const btn = document.getElementById('edit-mode-btn');
+            const label = document.getElementById('edit-mode-label');
+            const keypad = document.getElementById('keypad-panel');
+            const normalAddBtn = document.getElementById('normal-add-btn');
+            const deleteSelectedBtn = document.getElementById('delete-selected-btn');
+
+            if (isEditMode) {
+                btn.className = "bg-amber-500 border-2 border-slate-950 text-slate-950 px-3 py-3 rounded-lg text-xs font-black shrink-0 flex items-center gap-1 active:scale-95 transition-all";
+                label.innerText = "戻る (確定)";
+                keypad.classList.add('hidden');
+                normalAddBtn.classList.add('hidden');
+                deleteSelectedBtn.classList.remove('hidden');
+            } else {
+                btn.className = "bg-slate-200 dark:bg-slate-800 border-2 border-slate-950 dark:border-slate-700 text-slate-950 dark:text-slate-200 px-3 py-3 rounded-lg text-xs font-black shrink-0 flex items-center gap-1 active:scale-95 transition-all";
+                label.innerText = "追加・削除";
+                keypad.classList.remove('hidden');
+                normalAddBtn.classList.remove('hidden');
+                deleteSelectedBtn.classList.add('hidden');
+                saveState();
+            }
+            renderTable();
+            updateActivePointLabel();
+        }
+
+        function updatePointId(idx, newVal) {
+            const project = getCurrentProject();
+            if (project) {
+                project.tabs[currentTab].data[idx].id = newVal;
+                saveState();
+            }
+        }
+
+        function updatePointInit(idx, newVal) {
+            const project = getCurrentProject();
+            if (project) {
+                project.tabs[currentTab].data[idx].init = newVal;
+                saveState();
+            }
+        }
+
+        function updatePointPrev(idx, newVal) {
+            const project = getCurrentProject();
+            if (project) {
+                project.tabs[currentTab].data[idx].prev = newVal;
+                saveState();
+            }
+        }
+
+        function updatePointRemarks(idx, newVal) {
+            const project = getCurrentProject();
+            if (project) {
+                project.tabs[currentTab].data[idx].remarks = newVal;
+                saveState();
+            }
+        }
+
+        function addNewPoint() {
+            const project = getCurrentProject();
+            if (!project) return;
+            const currentItems = project.tabs[currentTab].data;
+            const prefix = currentTab === 0 ? "T-" : "SA";
+            
+            let nextNum = currentItems.length + 1;
+            let newId = `${prefix}${nextNum}`;
+            
+            while (currentItems.some(item => item.id === newId)) {
+                nextNum++;
+                newId = `${prefix}${nextNum}`;
+            }
+
+            currentItems.push({ id: newId, init: "", prev: "", curr: "", remarks: "", type: currentTab === 0 ? "水準点" : "シール" });
+            saveState();
+            
+            currentIndex = currentItems.length - 1;
+            currentInput = "";
+            renderTable();
+            updateActivePointLabel();
+            setTimeout(scrollToActiveRow, 100);
+        }
+
+        function deleteCheckedPoints() {
+            const checkedBoxes = document.querySelectorAll('input[name="delete-checkbox"]:checked');
+            if (checkedBoxes.length === 0) {
+                showModal("未選択", "削除したい点名の左端にある削除チェックをオンにしてください。", closeModal, true);
+                return;
+            }
+
+            const indicesToDelete = Array.from(checkedBoxes).map(cb => parseInt(cb.value)).sort((a, b) => b - a);
+            const project = getCurrentProject();
+            const pointNames = indicesToDelete.map(idx => project.tabs[currentTab].data[idx].id).reverse();
+
+            showModal(
+                "⚠️ 点名の削除確認",
+                `選択された【${pointNames.join(", ")}】を完全に削除してもよろしいですか？`,
+                () => {
+                    indicesToDelete.forEach(idx => {
+                        project.tabs[currentTab].data.splice(idx, 1);
+                    });
+                    
+                    if (currentIndex >= project.tabs[currentTab].data.length) {
+                        currentIndex = Math.max(0, project.tabs[currentTab].data.length - 1);
+                    }
+                    currentInput = project.tabs[currentTab].data[currentIndex]?.curr || "";
+                    
+                    saveState();
+                    closeModal();
+                    toggleEditMode();
+                }
+            );
+        }
+
+        function press(key) {
+            if (isEditMode) return;
+            const project = getCurrentProject();
+            const activePoint = project.tabs[currentTab].data[currentIndex];
+            if (!activePoint) return;
+
+            if (key === 'C') {
+                currentInput = "";
+            } else if (key === 'BS') {
+                currentInput = currentInput.slice(0, -1);
+            } else if (key === '+/-') {
+                if (currentInput.startsWith('-')) {
+                    currentInput = currentInput.slice(1);
+                    if (!currentInput.startsWith('+') && currentInput !== "") {
+                        currentInput = '+' + currentInput;
+                    }
+                } else if (currentInput.startsWith('+')) {
+                    currentInput = '-' + currentInput.slice(1);
+                } else if (currentInput !== "") {
+                    currentInput = '-' + currentInput;
+                } else {
+                    currentInput = '-';
+                }
+            } else if (key === '.') {
+                if (!currentInput.includes('.')) {
+                    currentInput += '.';
+                }
+            } else if (key === 'COPY') {
+                if (activePoint.prev && activePoint.prev !== "---") {
+                    currentInput = activePoint.prev;
+                } else {
+                    showModal("前月値なし", "コピー元の前月データが存在しません。", closeModal, true);
+                    return;
+                }
+            } else if (key === 'ENTER') {
+                saveAndNext();
+                return;
+            } else {
+                if (currentInput === "" && key !== '0') {
+                    currentInput = '+';
+                }
+                currentInput += key;
+            }
+
+            activePoint.curr = currentInput;
+            saveState();
+            renderTable();
+            updateActivePointLabel();
+        }
+
+        function saveAndNext() {
+            const project = getCurrentProject();
+            const activePoint = project.tabs[currentTab].data[currentIndex];
+            if (activePoint && currentInput) {
+                const numericValue = parseFloat(currentInput);
+                if (!isNaN(numericValue)) {
+                    const prefix = numericValue >= 0 ? "+" : "";
+                    activePoint.curr = prefix + numericValue.toFixed(3);
+                }
+            }
+            saveState();
+
+            if (currentIndex < project.tabs[currentTab].data.length - 1) {
+                currentIndex++;
+                currentInput = project.tabs[currentTab].data[currentIndex]?.curr || "";
+                renderTable();
+                updateActivePointLabel();
+                scrollToActiveRow();
+            } else {
+                showModal(
+                    "🎉 計測完了",
+                    "この区分の標高データがすべて入力されました。",
+                    closeModal,
+                    true
+                );
+            }
+        }
+
+        function updateActivePointLabel() {
+            const project = getCurrentProject();
+            const activePoint = project?.tabs[currentTab].data[currentIndex];
+            const nameLabel = document.getElementById('active-point-name');
+            const tempDisplay = document.getElementById('temp-display');
+            const lcdValue = document.getElementById('lcd-value');
+
+            if (activePoint && !isEditMode) {
+                nameLabel.innerText = activePoint.id;
+                const dispText = currentInput || "0.000";
+                tempDisplay.innerText = dispText;
+                lcdValue.innerText = dispText;
+            } else {
+                nameLabel.innerText = "---";
+                tempDisplay.innerText = "---";
+                lcdValue.innerText = "0.000";
+            }
+        }
+
+        function scrollToActiveRow() {
+            const activeRow = document.querySelector('.row-active');
+            if (activeRow) {
+                activeRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function confirmMonthlyReset() {
+            showModal(
+                "📅 月次データの移行",
+                "当月の値を前月に移行し、新規計測の入力をリセット（クリア）します。初期値(計画値)はそのまま残ります。更新しますか？",
+                () => {
+                    const project = getCurrentProject();
+                    if (project) {
+                        project.tabs.forEach(tab => {
+                            tab.data.forEach(p => {
+                                if (p.curr) p.prev = p.curr;
+                                p.curr = "";
+                            });
+                        });
+                        project.measureDate = new Date().toISOString().substring(0, 10);
+                        currentIndex = 0;
+                        currentInput = "";
+                        saveState();
+                        syncSelectors();
+                        renderTable();
+                        updateActivePointLabel();
+                        closeModal();
+                    }
+                }
+            );
+        }
+
+        /* ==================== A4 印刷プレビューおよびPDF直接生成機能の実装 ==================== */
+        function openPrintPreview() {
+            const project = getCurrentProject();
+            if (!project) return;
+
+            // プレビュー表示データの反映
+            document.getElementById('print-project-name').innerText = project.name;
+            
+            // 日付を「◯年◯月◯日」形式に整形
+            const d = new Date(project.measureDate);
+            if (!isNaN(d.getTime())) {
+                document.getElementById('print-measure-date').innerText = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+            } else {
+                document.getElementById('print-measure-date').innerText = project.measureDate;
+            }
+
+            // 変位差(mm)計算用ヘルパー（当月(curr) と 初期値(init) の比較差分を計算）
+            const calcDiff = (initStr, currStr) => {
+                if (!initStr || !currStr || initStr === "---" || currStr === "---" || initStr === "" || currStr === "") return "";
+                const i = parseFloat(initStr);
+                const c = parseFloat(currStr);
+                if (isNaN(i) || isNaN(c)) return "";
+                const diff = (c - i) * 1000; // メートルからミリメートル
+                return (diff >= 0 ? "+" : "") + diff.toFixed(1) + " mm";
+            };
+
+            // テーブル生成 (水準点鋲)
+            const tbody0 = document.getElementById('print-tbody-tab0');
+            tbody0.innerHTML = project.tabs[0].data.map(p => {
+                const initDisp = (p.init && p.init !== "---") ? p.init : "";
+                const prevDisp = (p.prev && p.prev !== "---") ? p.prev : "";
+                const currDisp = (p.curr && p.curr !== "---") ? p.curr : "";
+                const diffDisp = calcDiff(p.init, p.curr);
+                const diffClass = diffDisp.startsWith('-') ? 'text-red-600' : 'text-emerald-700';
+                return `
+                    <tr>
+                        <td class="text-center font-bold text-slate-500">${p.type || "水準点"}</td>
+                        <td class="font-mono font-bold">${p.id}</td>
+                        <td class="text-right font-mono">${initDisp}</td>
+                        <td class="text-right font-mono">${prevDisp}</td>
+                        <td class="text-right font-mono font-bold text-blue-950">${currDisp}</td>
+                        <td class="text-right font-mono font-bold ${diffClass}">${diffDisp}</td>
+                        <td class="text-[9px] text-slate-700">${p.remarks || ""}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            // テーブル生成 (測量シール)
+            const tbody1 = document.getElementById('print-tbody-tab1');
+            tbody1.innerHTML = project.tabs[1].data.map(p => {
+                const initDisp = (p.init && p.init !== "---") ? p.init : "";
+                const prevDisp = (p.prev && p.prev !== "---") ? p.prev : "";
+                const currDisp = (p.curr && p.curr !== "---") ? p.curr : "";
+                const diffDisp = calcDiff(p.init, p.curr);
+                const diffClass = diffDisp.startsWith('-') ? 'text-red-600' : 'text-emerald-700';
+                return `
+                    <tr>
+                        <td class="text-center font-bold text-slate-500">${p.type || "シール"}</td>
+                        <td class="font-mono font-bold">${p.id}</td>
+                        <td class="text-right font-mono">${initDisp}</td>
+                        <td class="text-right font-mono">${prevDisp}</td>
+                        <td class="text-right font-mono font-bold text-blue-950">${currDisp}</td>
+                        <td class="text-right font-mono font-bold ${diffClass}">${diffDisp}</td>
+                        <td class="text-[9px] text-slate-700">${p.remarks || ""}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.getElementById('print-preview-container').classList.remove('hidden');
+        }
+
+        // html2pdfを用いたPDFファイルの直接バックグラウンド生成と保存
+        function downloadPDF(event) {
+            if (event) event.stopPropagation();
+            
+            const element = document.querySelector('.print-page');
+            const project = getCurrentProject();
+            const projectName = project ? project.name : "標高管理表";
+            const measureDate = project ? project.measureDate : "";
+
+            // 一時的に影を消してPDF of端部を美しくする
+            const originalBoxShadow = element.style.boxShadow;
+            element.style.boxShadow = 'none';
+
+            // html2pdfの設定オプション
+            const opt = {
+                margin:       0, // CSSのpadding側で余白を完全制御
+                filename:     `${projectName}_標高管理表_${measureDate}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { 
+                    scale: 2, // 鮮明度と動作の安定性を両立
+                    useCORS: true,
+                    logging: false,
+                    letterRendering: true,
+                    width: 1123, // A4横幅297mmをピクセル換算にして固定し、絶対に見切れを防止
+                },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' },
+                pagebreak:    { mode: 'avoid-all' } // 意図しない2ページ目（空白ページ）の挿入を強力にブロック
+            };
+
+            const btn = document.getElementById('pdf-download-btn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = "⏳ 生成中...";
+            btn.disabled = true;
+
+            // PDFを直接生成してダウンロード実行
+            html2pdf().set(opt).from(element).save().then(() => {
+                element.style.boxShadow = originalBoxShadow;
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }).catch(err => {
+                console.error("PDF生成エラー:", err);
+                alert("PDFの直接生成に失敗しました。お手数ですが「通常の印刷」ボタンからPDF保存をお試しください。");
+                element.style.boxShadow = originalBoxShadow;
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            });
+        }
+
+        function closePrintPreview() {
+            document.getElementById('print-preview-container').classList.add('hidden');
+        }
+
+        /* 📱 スマホ登録手順説明用 モーダルの制御 */
+        function openGuideModal() {
+            document.getElementById('guide-modal').classList.remove('hidden');
+        }
+        function closeGuideModal() {
+            document.getElementById('guide-modal').classList.add('hidden');
+        }
+
+        /* プロジェクト管理モーダル操作 */
+        function openProjectManager() {
+            document.getElementById('project-modal').classList.remove('hidden');
+            renderProjectList();
+        }
+
+        function closeProjectManager() {
+            document.getElementById('project-modal').classList.add('hidden');
+        }
+
+        function renderProjectList() {
+            const container = document.getElementById('project-list');
+            container.innerHTML = appState.projects.map((p, i) => `
+                <div class="flex items-center justify-between p-3.5 rounded bg-white dark:bg-slate-900 border-2 border-slate-950 dark:border-slate-800">
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" name="delete-project-checkbox" value="${p.id}" class="w-6 h-6 rounded accent-red-600 bg-white dark:bg-slate-950 border-2 border-slate-950 border border-slate-700 cursor-pointer">
+                        <span class="text-sm font-black ${p.id === appState.currentProjectId ? 'text-blue-700 dark:text-yellow-400' : 'text-slate-950 dark:text-slate-200'}">${p.name}</span>
+                    </div>
+                    <span class="text-xs font-black text-slate-500 dark:text-slate-400">${p.measureDate || '日付なし'}</span>
+                </div>
+            `).join('');
+        }
+
+        function addNewProject() {
+            const nameInput = document.getElementById('new-project-name');
+            const name = nameInput.value.trim();
+            if (!name) {
+                showModal("エラー", "プロジェクト現場名を入力してください。", closeModal, true);
+                return;
+            }
+
+            const newId = 'p_' + Date.now();
+            const newProj = {
+                id: newId,
+                name: name,
+                measureDate: new Date().toISOString().substring(0,10),
+                tabs: JSON.parse(JSON.stringify(defaultTabsTemplate))
+            };
+
+            appState.projects.push(newProj);
+            appState.currentProjectId = newId;
+            saveState();
+            nameInput.value = "";
+            
+            syncSelectors();
+            renderTable();
+            updateActivePointLabel();
+            renderProjectList();
+            closeProjectManager();
+        }
+
+        function deleteCheckedProjects() {
+            const checkedBoxes = document.querySelectorAll('input[name="delete-project-checkbox"]:checked');
+            if (checkedBoxes.length === 0) {
+                showModal("未選択", "削除したいプロジェクトを選択してください。", closeModal, true);
+                return;
+            }
+
+            const idsToDelete = Array.from(checkedBoxes).map(cb => cb.value);
+
+            if (appState.projects.length - idsToDelete.length <= 0) {
+                showModal("エラー", "すべての現場を削除することはできません。最低1つの現場が必要です。", closeModal, true);
+                return;
+            }
+
+            showModal(
+                "⚠️ プロジェクトの完全削除",
+                "選択した現場と、それに紐付くすべての計測データが完全に削除されます。復元はできません。よろしいですか？",
+                () => {
+                    appState.projects = appState.projects.filter(p => !idsToDelete.includes(p.id));
+                    
+                    if (idsToDelete.includes(appState.currentProjectId)) {
+                        appState.currentProjectId = appState.projects[0].id;
+                    }
+                    
+                    saveState();
+                    syncSelectors();
+                    renderTable();
+                    updateActivePointLabel();
+                    renderProjectList();
+                    closeModal();
+                }
+            );
+        }
+
+        /* 汎用確認ダイアログ操作 */
+        function showModal(title, msg, onConfirm, singleButton = false) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = msg;
+            
+            const confirmBtn = document.getElementById('modal-confirm-btn');
+            const cancelBtn = document.getElementById('modal-cancel-btn');
+
+            confirmBtn.onclick = onConfirm;
+
+            if (singleButton) {
+                cancelBtn.classList.add('hidden');
+                confirmBtn.innerText = "了解しました";
+                confirmBtn.className = "px-5 py-2.5 bg-slate-900 dark:bg-slate-750 text-white rounded-lg font-black text-xs active:scale-95 border-2 border-slate-950 dark:border-slate-700 transition-all";
+            } else {
+                cancelBtn.classList.remove('hidden');
+                confirmBtn.innerText = "確定する";
+                confirmBtn.className = "px-5 py-2.5 bg-red-600 text-white rounded-lg font-black text-xs active:scale-95 border-2 border-red-950 dark:border-red-900 transition-all shadow-md";
+            }
+
+            document.getElementById('custom-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('custom-modal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
