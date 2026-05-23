@@ -241,6 +241,11 @@
                         📱 スマホ登録手順
                     </button>
 
+                    <!-- CSV出力ボタン -->
+                    <button onclick="exportCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] md:text-xs py-1.5 px-2 rounded-lg border-2 border-emerald-800 dark:border-emerald-500 shadow active:scale-95 transition-all">
+                        📊 CSV出力
+                    </button>
+
                     <!-- PDF印刷プレビューボタン -->
                     <button onclick="openPrintPreview()" class="bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] md:text-xs py-1.5 px-2 rounded-lg border-2 border-blue-800 dark:border-blue-500 shadow active:scale-95 transition-all">
                         📄 PDF出力
@@ -488,6 +493,19 @@
                     <button onclick="addNewProject()" class="bg-blue-600 text-white font-black text-xs py-1.5 px-3 rounded border-2 border-slate-950 dark:border-blue-500 transition-all active:scale-95">
                         追加
                     </button>
+                </div>
+            </div>
+
+            <div class="bg-slate-50 dark:bg-slate-950 p-3 rounded-lg border-2 border-slate-200 dark:border-slate-800 mb-4">
+                <label class="block text-xs text-slate-900 dark:text-slate-400 mb-1 font-black">全データバックアップ＆復元</label>
+                <div class="flex gap-2">
+                    <button onclick="exportJSON()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] md:text-xs py-1.5 px-3 rounded border-2 border-slate-950 dark:border-indigo-500 transition-all active:scale-95">
+                        💾 バックアップ保存
+                    </button>
+                    <button onclick="triggerImport()" class="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-black text-[10px] md:text-xs py-1.5 px-3 rounded border-2 border-slate-950 dark:border-amber-500 transition-all active:scale-95">
+                        📂 ファイルから復元
+                    </button>
+                    <input type="file" id="import-json-input" accept=".json" class="hidden" onchange="importJSON(event)">
                 </div>
             </div>
 
@@ -1243,6 +1261,68 @@
 
         function closeModal() {
             document.getElementById('custom-modal').classList.add('hidden');
+        }
+
+        // CSV出力機能
+        function exportCSV() {
+            const project = getCurrentProject();
+            if (!project) return;
+            let csv = '\uFEFF'; // BOM (文字化け防止)
+            csv += '区分,点名,初期値,前月,当月,備考\n';
+            project.tabs.forEach(tab => {
+                tab.data.forEach(item => {
+                    csv += `"${tab.tabName}","${item.id}","${item.init || ''}","${item.prev || ''}","${item.curr || ''}","${item.remarks || ''}"\n`;
+                });
+            });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${project.name}_${project.measureDate || 'data'}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // JSONバックアップ保存機能
+        function exportJSON() {
+            const dataStr = JSON.stringify(appState, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `osr_backup_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // JSONバックアップ復元機能
+        function triggerImport() {
+            document.getElementById('import-json-input').click();
+        }
+
+        function importJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (imported && imported.projects) {
+                        appState = imported;
+                        saveState();
+                        syncSelectors();
+                        switchTab(0);
+                        alert("バックアップファイルからデータを復元しました。");
+                        closeProjectManager();
+                    } else {
+                        alert("不正なファイルフォーマットです。復元できませんでした。");
+                    }
+                } catch (err) {
+                    alert("ファイルの読み込みに失敗しました。");
+                }
+                event.target.value = '';
+            };
+            reader.readAsText(file);
         }
     </script>
 </body>
