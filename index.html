@@ -271,13 +271,13 @@
         <div class="flex justify-between items-center gap-1.5 mb-1.5 shrink-0">
             <div class="flex gap-1 flex-grow">
                 <button id="tab-0" onclick="switchTab(0)" class="flex-1 py-2 text-xs rounded-lg font-black transition-all shadow-md bg-blue-700 dark:bg-blue-600 text-white border-2 border-slate-950 dark:border-blue-500">
-                    📍 水準点 / KBM
+                    1級基準点
                 </button>
                 <button id="tab-1" onclick="switchTab(1)" class="flex-1 py-2 text-xs rounded-lg font-black transition-all shadow bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-300 border-2 border-slate-950 dark:border-slate-700">
-                    🏷️ シール / 1級
+                    2級基準点
                 </button>
                 <button id="tab-2" onclick="switchTab(2)" class="flex-1 py-2 text-xs rounded-lg font-black transition-all shadow bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-300 border-2 border-slate-950 dark:border-slate-700">
-                    🏗️ 3級(構台等)
+                    3級基準点
                 </button>
             </div>
             <button id="edit-mode-btn" onclick="toggleEditMode()" class="bg-slate-200 dark:bg-slate-800 border-2 border-slate-950 dark:border-slate-700 text-slate-950 dark:text-slate-200 px-2.5 py-2 rounded-lg text-xs font-black shrink-0 flex items-center gap-1 active:scale-95 transition-all">
@@ -387,10 +387,10 @@
 
             <!-- 3カラムコンテンツエリア -->
             <div class="grid grid-cols-3 gap-3">
-                <!-- 左カラム: 水準点鋲 -->
+                <!-- 左カラム: 1級 -->
                 <div>
                     <h3 class="text-[10px] font-black bg-blue-100 border border-slate-950 text-blue-900 px-1 py-1 mb-1.5 flex justify-between">
-                        <span>📍 水準点 / KBM</span>
+                        <span>1級基準点</span>
                         <span class="text-[9px]">単位: O.P.(m)</span>
                     </h3>
                     <table class="print-table">
@@ -410,10 +410,10 @@
                     </table>
                 </div>
 
-                <!-- 中央カラム: 測量シール -->
+                <!-- 中央カラム: 2級 -->
                 <div>
                     <h3 class="text-[10px] font-black bg-emerald-100 border border-slate-950 text-emerald-900 px-1 py-1 mb-1.5 flex justify-between">
-                        <span>🏷️ シール / 1級</span>
+                        <span>2級基準点</span>
                         <span class="text-[9px]">単位: O.P.(m)</span>
                     </h3>
                     <table class="print-table">
@@ -436,7 +436,7 @@
                 <!-- 右カラム: 3級 -->
                 <div>
                     <h3 class="text-[10px] font-black bg-orange-100 border border-slate-950 text-orange-900 px-1 py-1 mb-1.5 flex justify-between">
-                        <span>🏗️ 3級(構台・アングル)</span>
+                        <span>3級基準点</span>
                         <span class="text-[9px]">単位: O.P.(m)</span>
                     </h3>
                     <table class="print-table">
@@ -560,43 +560,22 @@
         // デフォルトマスターデータ構造 (PDF完全準拠)
         const defaultTabsTemplate = [
             {
-                tabName: "水準点鋲 / KBM",
+                tabName: "1級基準点",
                 data: [
-                    { id: "1014A", init: "+2.393", prev: "+2.393", curr: "", type: "水準点", remarks: "基準与点(2級街区三角点)" },
-                    { id: "T-1", init: "+2.058", prev: "+2.058", curr: "", type: "水準点", remarks: "" },
-                    { id: "T-2", init: "+1.133", prev: "+1.133", curr: "", type: "水準点", remarks: "" },
-                    { id: "T-3", init: "+1.227", prev: "+1.227", curr: "", type: "水準点", remarks: "" },
-                    { id: "T-4", init: "+1.304", prev: "+1.304", curr: "", type: "水準点", remarks: "" },
-                    { id: "T-5", init: "+1.257", prev: "+1.257", curr: "", type: "水準点", remarks: "" },
-                    { id: "T-6", init: "+1.119", prev: "+1.119", curr: "", type: "水準点", remarks: "" },
-                    { id: "T-7", init: "+1.013", prev: "+1.013", curr: "", type: "水準点", remarks: "" },
-                    { id: "T-8", init: "+3.159", prev: "+3.159", curr: "", type: "水準点", remarks: "" },
-                    { id: "T-9", init: "+5.180", prev: "+5.180", curr: "", type: "水準点", remarks: "" },
-                    { id: "T-10", init: "+7.361", prev: "+7.361", curr: "", type: "水準点", remarks: "" },
-                    { id: "T-11", init: "+8.400", prev: "+8.400", curr: "", type: "水準点", remarks: "" },
-                    { id: "T-12", init: "+6.716", prev: "+6.716", curr: "", type: "水準点", remarks: "" },
-                    { id: "T-13", init: "+4.444", prev: "+4.444", curr: "", type: "水準点", remarks: "" },
-                    { id: "T-14", init: "+2.262", prev: "+2.262", curr: "", type: "水準点", remarks: "(T2)" },
-                    { id: "T-15", init: "+1.475", prev: "+1.475", curr: "", type: "水準点", remarks: "" },
-                    { id: "KBM.1", init: "+1.444", prev: "+1.444", curr: "", type: "水準点", remarks: "OSRベンチマーク (T1)" }
+                    { id: "① SA18", init: "+9.977", prev: "+9.977", curr: "", type: "1級", remarks: "" },
+                    { id: "② SA1", init: "+12.830", prev: "+12.830", curr: "", type: "1級", remarks: "" },
+                    { id: "③ SA12", init: "+18.434", prev: "+18.434", curr: "", type: "1級", remarks: "" },
+                    { id: "駐車場外壁", init: "+3.500", prev: "+3.500", curr: "", type: "1級", remarks: "" }
                 ]
             },
             {
-                tabName: "測量シール / 1級",
+                tabName: "2級基準点",
                 data: [
-                    { id: "SA5", init: "+10.101", prev: "+10.101", curr: "", type: "シール", remarks: "" },
-                    { id: "SA16", init: "+10.104", prev: "+10.104", curr: "", type: "シール", remarks: "" },
-                    { id: "SA6", init: "+10.071", prev: "+10.071", curr: "", type: "シール", remarks: "" },
-                    { id: "SA17", init: "+10.083", prev: "+10.083", curr: "", type: "シール", remarks: "" },
-                    { id: "SA7", init: "+10.084", prev: "+10.084", curr: "", type: "シール", remarks: "" },
-                    { id: "SA18", init: "+10.096", prev: "+10.096", curr: "", type: "シール", remarks: "" },
-                    { id: "SA8", init: "+10.106", prev: "+10.106", curr: "", type: "シール", remarks: "" },
-                    { id: "SA19", init: "+10.089", prev: "+10.089", curr: "", type: "シール", remarks: "" },
-                    { id: "SA9", init: "+10.074", prev: "+10.074", curr: "", type: "シール", remarks: "" }
+                    { id: "④ KBM(T1)", init: "+1.330", prev: "+1.330", curr: "", type: "2級", remarks: "" }
                 ]
             },
             {
-                tabName: "3級(構台・アングル)",
+                tabName: "3級基準点",
                 data: [
                     { id: "⑤ アングル", init: "+7.900", prev: "+7.900", curr: "", type: "3級", remarks: "" },
                     { id: "⑥ アングル", init: "+7.900", prev: "+7.900", curr: "", type: "3級", remarks: "" },
@@ -611,8 +590,8 @@
                     { id: "⑮ 構台杭", init: "+0.200", prev: "+0.200", curr: "", type: "3級", remarks: "" },
                     { id: "⑯ 構台杭", init: "-0.300", prev: "-0.300", curr: "", type: "3級", remarks: "" },
                     { id: "⑰ 構台杭", init: "+0.200", prev: "+0.200", curr: "", type: "3級", remarks: "" },
-                    { id: "⑱ 構台杭", init: "+1.700", prev: "+1.700", curr: "", type: "3級", remarks: "新規追加" },
-                    { id: "⑲ 構台杭", init: "+2.200", prev: "+2.200", curr: "", type: "3級", remarks: "新規追加" }
+                    { id: "⑱ 構台杭", init: "+0.000", prev: "+0.000", curr: "", type: "3級", remarks: "1回目計測1.700" },
+                    { id: "⑲ 構台杭", init: "+0.000", prev: "+0.000", curr: "", type: "3級", remarks: "1回目計測2.200" }
                 ]
             }
         ];
