@@ -684,6 +684,20 @@
             }
         }
 
+        function updateTabUI() {
+            const container = document.getElementById('tab-buttons-container');
+            const project = getCurrentProject();
+            if (!project || !project.tabs) return;
+
+            container.innerHTML = project.tabs.map((tab, idx) => {
+                const isActive = idx === currentTab;
+                const baseClass = isActive 
+                    ? "flex-1 py-2 text-[10px] md:text-xs rounded-lg font-black transition-all shadow-md bg-blue-700 dark:bg-blue-600 text-white border-2 border-slate-950 dark:border-blue-500"
+                    : "flex-1 py-2 text-[10px] md:text-xs rounded-lg font-black transition-all shadow bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-300 border-2 border-slate-950 dark:border-slate-700";
+                return `<button id="tab-${idx}" onclick="switchTab(${idx})" class="${baseClass}">${tab.tabName}</button>`;
+            }).join('');
+        }
+
         function switchTab(idx) {
             if (isEditMode) {
                 toggleEditMode();
