@@ -14,7 +14,9 @@
 - **ダークモード対応**: 屋内の暗い環境でも見やすいテーマ切り替え
 
 ## 使い方（インストール方法）
-1. スマホのブラウザ（iOSはSafari、AndroidはChrome推奨）で公開URLにアクセスします。
+**公開URL:** [https://hyoko-survey-app.vercel.app/](https://hyoko-survey-app.vercel.app/)
+
+1. スマホのブラウザ（iOSはSafari、AndroidはChrome推奨）で上記の公開URLにアクセスします。
 2. ブラウザのメニューから「ホーム画面に追加」をタップします。
 3. ホーム画面に追加されたアイコンからアプリを起動して使用します。
 
