@@ -271,10 +271,13 @@
         <div class="flex justify-between items-center gap-1.5 mb-1.5 shrink-0">
             <div class="flex gap-1 flex-grow">
                 <button id="tab-0" onclick="switchTab(0)" class="flex-1 py-2 text-xs rounded-lg font-black transition-all shadow-md bg-blue-700 dark:bg-blue-600 text-white border-2 border-slate-950 dark:border-blue-500">
-                    📍 水準点鋲
+                    📍 水準点 / KBM
                 </button>
                 <button id="tab-1" onclick="switchTab(1)" class="flex-1 py-2 text-xs rounded-lg font-black transition-all shadow bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-300 border-2 border-slate-950 dark:border-slate-700">
-                    🏷️ 測量シール
+                    🏷️ シール / 1級
+                </button>
+                <button id="tab-2" onclick="switchTab(2)" class="flex-1 py-2 text-xs rounded-lg font-black transition-all shadow bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-300 border-2 border-slate-950 dark:border-slate-700">
+                    🏗️ 3級(構台等)
                 </button>
             </div>
             <button id="edit-mode-btn" onclick="toggleEditMode()" class="bg-slate-200 dark:bg-slate-800 border-2 border-slate-950 dark:border-slate-700 text-slate-950 dark:text-slate-200 px-2.5 py-2 rounded-lg text-xs font-black shrink-0 flex items-center gap-1 active:scale-95 transition-all">
@@ -382,24 +385,23 @@
                 </div>
             </div>
 
-            <!-- 2カラムコンテンツエリア -->
-            <div class="grid grid-cols-2 gap-3">
+            <!-- 3カラムコンテンツエリア -->
+            <div class="grid grid-cols-3 gap-3">
                 <!-- 左カラム: 水準点鋲 -->
                 <div>
-                    <h3 class="text-[10px] font-black bg-blue-100 border border-slate-950 text-blue-900 px-2 py-1 mb-1.5 flex justify-between">
-                        <span>📍 水準点鋲 一覧 (基準高)</span>
+                    <h3 class="text-[10px] font-black bg-blue-100 border border-slate-950 text-blue-900 px-1 py-1 mb-1.5 flex justify-between">
+                        <span>📍 水準点 / KBM</span>
                         <span class="text-[9px]">単位: O.P.(m)</span>
                     </h3>
                     <table class="print-table">
                         <thead>
                             <tr>
-                                <th class="w-[10%] text-center">区分</th>
                                 <th class="w-[18%] text-left">点名</th>
-                                <th class="w-[16%] text-right">初期(OP)</th>
-                                <th class="w-[16%] text-right">前月(OP)</th>
-                                <th class="w-[16%] text-right">当月(OP)</th>
-                                <th class="w-[13%] text-right">変位差</th>
-                                <th class="w-[11%] text-left">備考</th>
+                                <th class="w-[18%] text-right">初期</th>
+                                <th class="w-[18%] text-right">前月</th>
+                                <th class="w-[18%] text-right">当月</th>
+                                <th class="w-[15%] text-right">変位差</th>
+                                <th class="w-[13%] text-left">備考</th>
                             </tr>
                         </thead>
                         <tbody id="print-tbody-tab0">
@@ -408,25 +410,47 @@
                     </table>
                 </div>
 
-                <!-- 右カラム: 測量シール -->
+                <!-- 中央カラム: 測量シール -->
                 <div>
-                    <h3 class="text-[10px] font-black bg-emerald-100 border border-slate-950 text-emerald-900 px-2 py-1 mb-1.5 flex justify-between">
-                        <span>🏷️ 測量シール 一覧 (管理点)</span>
+                    <h3 class="text-[10px] font-black bg-emerald-100 border border-slate-950 text-emerald-900 px-1 py-1 mb-1.5 flex justify-between">
+                        <span>🏷️ シール / 1級</span>
                         <span class="text-[9px]">単位: O.P.(m)</span>
                     </h3>
                     <table class="print-table">
                         <thead>
                             <tr>
-                                <th class="w-[10%] text-center">区分</th>
                                 <th class="w-[18%] text-left">点名</th>
-                                <th class="w-[16%] text-right">初期(OP)</th>
-                                <th class="w-[16%] text-right">前月(OP)</th>
-                                <th class="w-[16%] text-right">当月(OP)</th>
-                                <th class="w-[13%] text-right">変位差</th>
-                                <th class="w-[11%] text-left">備考</th>
+                                <th class="w-[18%] text-right">初期</th>
+                                <th class="w-[18%] text-right">前月</th>
+                                <th class="w-[18%] text-right">当月</th>
+                                <th class="w-[15%] text-right">変位差</th>
+                                <th class="w-[13%] text-left">備考</th>
                             </tr>
                         </thead>
                         <tbody id="print-tbody-tab1">
+                            <!-- JSで生成 -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 右カラム: 3級 -->
+                <div>
+                    <h3 class="text-[10px] font-black bg-orange-100 border border-slate-950 text-orange-900 px-1 py-1 mb-1.5 flex justify-between">
+                        <span>🏗️ 3級(構台・アングル)</span>
+                        <span class="text-[9px]">単位: O.P.(m)</span>
+                    </h3>
+                    <table class="print-table">
+                        <thead>
+                            <tr>
+                                <th class="w-[18%] text-left">点名</th>
+                                <th class="w-[18%] text-right">初期</th>
+                                <th class="w-[18%] text-right">前月</th>
+                                <th class="w-[18%] text-right">当月</th>
+                                <th class="w-[15%] text-right">変位差</th>
+                                <th class="w-[13%] text-left">備考</th>
+                            </tr>
+                        </thead>
+                        <tbody id="print-tbody-tab2">
                             <!-- JSで生成 -->
                         </tbody>
                     </table>
@@ -536,7 +560,7 @@
         // デフォルトマスターデータ構造 (PDF完全準拠)
         const defaultTabsTemplate = [
             {
-                tabName: "水準点鋲",
+                tabName: "水準点鋲 / KBM",
                 data: [
                     { id: "1014A", init: "+2.393", prev: "+2.393", curr: "", type: "水準点", remarks: "基準与点(2級街区三角点)" },
                     { id: "T-1", init: "+2.058", prev: "+2.058", curr: "", type: "水準点", remarks: "" },
@@ -558,7 +582,7 @@
                 ]
             },
             {
-                tabName: "測量シール",
+                tabName: "測量シール / 1級",
                 data: [
                     { id: "SA5", init: "+10.101", prev: "+10.101", curr: "", type: "シール", remarks: "" },
                     { id: "SA16", init: "+10.104", prev: "+10.104", curr: "", type: "シール", remarks: "" },
@@ -569,6 +593,26 @@
                     { id: "SA8", init: "+10.106", prev: "+10.106", curr: "", type: "シール", remarks: "" },
                     { id: "SA19", init: "+10.089", prev: "+10.089", curr: "", type: "シール", remarks: "" },
                     { id: "SA9", init: "+10.074", prev: "+10.074", curr: "", type: "シール", remarks: "" }
+                ]
+            },
+            {
+                tabName: "3級(構台・アングル)",
+                data: [
+                    { id: "⑤ アングル", init: "+7.900", prev: "+7.900", curr: "", type: "3級", remarks: "" },
+                    { id: "⑥ アングル", init: "+7.900", prev: "+7.900", curr: "", type: "3級", remarks: "" },
+                    { id: "⑦ アングル", init: "+7.900", prev: "+7.900", curr: "", type: "3級", remarks: "" },
+                    { id: "⑧ アングル", init: "+8.000", prev: "+8.000", curr: "", type: "3級", remarks: "" },
+                    { id: "⑨ アングル", init: "+8.000", prev: "+8.000", curr: "", type: "3級", remarks: "" },
+                    { id: "⑩ アングル", init: "+7.900", prev: "+7.900", curr: "", type: "3級", remarks: "亡失" },
+                    { id: "⑪ アングル", init: "+2.900", prev: "+2.900", curr: "", type: "3級", remarks: "" },
+                    { id: "⑫ アングル", init: "+3.200", prev: "+3.200", curr: "", type: "3級", remarks: "" },
+                    { id: "⑬ 山留", init: "+0.700", prev: "+0.700", curr: "", type: "3級", remarks: "亡失" },
+                    { id: "⑭ 構台杭", init: "+1.500", prev: "+1.500", curr: "", type: "3級", remarks: "" },
+                    { id: "⑮ 構台杭", init: "+0.200", prev: "+0.200", curr: "", type: "3級", remarks: "" },
+                    { id: "⑯ 構台杭", init: "-0.300", prev: "-0.300", curr: "", type: "3級", remarks: "" },
+                    { id: "⑰ 構台杭", init: "+0.200", prev: "+0.200", curr: "", type: "3級", remarks: "" },
+                    { id: "⑱ 構台杭", init: "+1.700", prev: "+1.700", curr: "", type: "3級", remarks: "新規追加" },
+                    { id: "⑲ 構台杭", init: "+2.200", prev: "+2.200", curr: "", type: "3級", remarks: "新規追加" }
                 ]
             }
         ];
@@ -679,8 +723,9 @@
             const currentProj = getCurrentProject();
             currentInput = currentProj.tabs[currentTab].data[currentIndex]?.curr || "";
             
-            document.getElementById('tab-0').className = idx === 0 ? "flex-1 py-3 text-xs rounded-lg font-black transition-all shadow-md bg-blue-700 dark:bg-blue-600 text-white border-2 border-slate-950 dark:border-blue-500" : "flex-1 py-3 text-xs rounded-lg font-black transition-all shadow bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-300 border-2 border-slate-950 dark:border-slate-700";
-            document.getElementById('tab-1').className = idx === 1 ? "flex-1 py-3 text-xs rounded-lg font-black transition-all shadow-md bg-blue-700 dark:bg-blue-600 text-white border-2 border-slate-950 dark:border-blue-500" : "flex-1 py-3 text-xs rounded-lg font-black transition-all shadow bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-300 border-2 border-slate-950 dark:border-slate-700";
+            document.getElementById('tab-0').className = idx === 0 ? "flex-1 py-2 text-xs rounded-lg font-black transition-all shadow-md bg-blue-700 dark:bg-blue-600 text-white border-2 border-slate-950 dark:border-blue-500" : "flex-1 py-2 text-xs rounded-lg font-black transition-all shadow bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-300 border-2 border-slate-950 dark:border-slate-700";
+            document.getElementById('tab-1').className = idx === 1 ? "flex-1 py-2 text-xs rounded-lg font-black transition-all shadow-md bg-blue-700 dark:bg-blue-600 text-white border-2 border-slate-950 dark:border-blue-500" : "flex-1 py-2 text-xs rounded-lg font-black transition-all shadow bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-300 border-2 border-slate-950 dark:border-slate-700";
+            document.getElementById('tab-2').className = idx === 2 ? "flex-1 py-2 text-xs rounded-lg font-black transition-all shadow-md bg-blue-700 dark:bg-blue-600 text-white border-2 border-slate-950 dark:border-blue-500" : "flex-1 py-2 text-xs rounded-lg font-black transition-all shadow bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-300 border-2 border-slate-950 dark:border-slate-700";
             
             renderTable();
             updateActivePointLabel();
@@ -1046,47 +1091,32 @@
                 return (diff >= 0 ? "+" : "") + diff.toFixed(1) + " mm";
             };
 
-            // テーブル生成 (水準点鋲)
-            const tbody0 = document.getElementById('print-tbody-tab0');
-            tbody0.innerHTML = project.tabs[0].data.map(p => {
-                const initDisp = (p.init && p.init !== "---") ? p.init : "";
-                const prevDisp = (p.prev && p.prev !== "---") ? p.prev : "";
-                const currDisp = (p.curr && p.curr !== "---") ? p.curr : "";
-                const diffDisp = calcDiff(p.init, p.curr);
-                const diffClass = diffDisp.startsWith('-') ? 'text-red-600' : 'text-emerald-700';
-                return `
-                    <tr>
-                        <td class="text-center font-bold text-slate-500">${p.type || "水準点"}</td>
-                        <td class="font-mono font-bold">${p.id}</td>
-                        <td class="text-right font-mono">${initDisp}</td>
-                        <td class="text-right font-mono">${prevDisp}</td>
-                        <td class="text-right font-mono font-bold text-blue-950">${currDisp}</td>
-                        <td class="text-right font-mono font-bold ${diffClass}">${diffDisp}</td>
-                        <td class="text-[9px] text-slate-700">${p.remarks || ""}</td>
-                    </tr>
-                `;
-            }).join('');
+            // ヘルパー関数: PDFテーブル行生成
+            const generateRows = (dataArray) => {
+                if (!dataArray) return "";
+                return dataArray.map(p => {
+                    const initDisp = (p.init && p.init !== "---") ? p.init : "";
+                    const prevDisp = (p.prev && p.prev !== "---") ? p.prev : "";
+                    const currDisp = (p.curr && p.curr !== "---") ? p.curr : "";
+                    const diffDisp = calcDiff(p.init, p.curr);
+                    const diffClass = diffDisp.startsWith('-') ? 'text-red-600' : 'text-emerald-700';
+                    return `
+                        <tr>
+                            <td class="font-mono font-bold">${p.id}</td>
+                            <td class="text-right font-mono">${initDisp}</td>
+                            <td class="text-right font-mono">${prevDisp}</td>
+                            <td class="text-right font-mono font-bold text-blue-950">${currDisp}</td>
+                            <td class="text-right font-mono font-bold ${diffClass}">${diffDisp}</td>
+                            <td class="text-[9px] text-slate-700">${p.remarks || ""}</td>
+                        </tr>
+                    `;
+                }).join('');
+            };
 
-            // テーブル生成 (測量シール)
-            const tbody1 = document.getElementById('print-tbody-tab1');
-            tbody1.innerHTML = project.tabs[1].data.map(p => {
-                const initDisp = (p.init && p.init !== "---") ? p.init : "";
-                const prevDisp = (p.prev && p.prev !== "---") ? p.prev : "";
-                const currDisp = (p.curr && p.curr !== "---") ? p.curr : "";
-                const diffDisp = calcDiff(p.init, p.curr);
-                const diffClass = diffDisp.startsWith('-') ? 'text-red-600' : 'text-emerald-700';
-                return `
-                    <tr>
-                        <td class="text-center font-bold text-slate-500">${p.type || "シール"}</td>
-                        <td class="font-mono font-bold">${p.id}</td>
-                        <td class="text-right font-mono">${initDisp}</td>
-                        <td class="text-right font-mono">${prevDisp}</td>
-                        <td class="text-right font-mono font-bold text-blue-950">${currDisp}</td>
-                        <td class="text-right font-mono font-bold ${diffClass}">${diffDisp}</td>
-                        <td class="text-[9px] text-slate-700">${p.remarks || ""}</td>
-                    </tr>
-                `;
-            }).join('');
+            // テーブル生成 (3カラム分)
+            document.getElementById('print-tbody-tab0').innerHTML = generateRows(project.tabs[0]?.data);
+            document.getElementById('print-tbody-tab1').innerHTML = generateRows(project.tabs[1]?.data);
+            document.getElementById('print-tbody-tab2').innerHTML = generateRows(project.tabs[2]?.data);
 
             document.getElementById('print-preview-container').classList.remove('hidden');
         }
