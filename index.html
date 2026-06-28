@@ -146,7 +146,7 @@
         .print-page {
             width: 297mm; /* A4横サイズ */
             height: 208mm; /* 余白・ヘッダー分の誤差を考慮して高さを208mmに微調整 */
-            padding: 10mm 10mm; 
+            padding: 5mm 5mm; /* 10mmから5mmに縮小し描画領域を拡大 */
             margin: 0 auto;
             background: #ffffff;
             color: #000000;
@@ -165,9 +165,9 @@
         }
         .print-table th, .print-table td {
             border: 1px solid #000000 !important;
-            font-size: 11px; /* 9pxから11pxに大きくし、直感的に見やすく改良 */
-            padding: 5.5px 4px; /* A4横の高さに美しく収まるパディング */
-            line-height: 1.2;
+            font-size: 8.5px; /* 行数増加に伴い11pxから縮小し1枚に収める */
+            padding: 3px 2px; /* パディングも限界まで詰める */
+            line-height: 1.1;
             word-wrap: break-word;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -202,7 +202,7 @@
             .print-page {
                 box-shadow: none !important;
                 margin: 0 !important;
-                padding: 10mm 10mm !important;
+                padding: 5mm 5mm !important;
                 width: 297mm !important;
                 height: 210mm !important;
                 page-break-inside: avoid;
