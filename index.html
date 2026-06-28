@@ -1070,12 +1070,12 @@
                     const diffClass = diffDisp.startsWith('-') ? 'text-red-600' : 'text-emerald-700';
                     return `
                         <tr>
-                            <td class="font-mono font-bold">${p.id}</td>
-                            <td class="text-right font-mono">${initDisp}</td>
-                            <td class="text-right font-mono">${prevDisp}</td>
-                            <td class="text-right font-mono font-bold text-blue-950">${currDisp}</td>
-                            <td class="text-right font-mono font-bold ${diffClass}">${diffDisp}</td>
-                            <td class="text-[9px] text-slate-700">${p.remarks || ""}</td>
+                            <td class="font-mono font-bold whitespace-nowrap overflow-hidden text-ellipsis">${p.id}</td>
+                            <td class="text-right font-mono whitespace-nowrap">${initDisp}</td>
+                            <td class="text-right font-mono whitespace-nowrap">${prevDisp}</td>
+                            <td class="text-right font-mono font-bold text-blue-950 whitespace-nowrap">${currDisp}</td>
+                            <td class="text-right font-mono font-bold ${diffClass} whitespace-nowrap">${diffDisp}</td>
+                            <td class="text-[9px] text-slate-700 leading-tight">${p.remarks || ""}</td>
                         </tr>
                     `;
                 }).join('');
@@ -1115,12 +1115,12 @@
                         <table class="print-table">
                             <thead>
                                 <tr>
-                                    <th class="w-[18%] text-left">点名</th>
-                                    <th class="w-[18%] text-right">初期</th>
-                                    <th class="w-[18%] text-right">前月</th>
-                                    <th class="w-[18%] text-right">当月</th>
+                                    <th class="w-[23%] text-left">点名</th>
+                                    <th class="w-[16%] text-right">初期</th>
+                                    <th class="w-[16%] text-right">前月</th>
+                                    <th class="w-[16%] text-right">当月</th>
                                     <th class="w-[15%] text-right">変位差</th>
-                                    <th class="w-[13%] text-left">備考</th>
+                                    <th class="w-[14%] text-left">備考</th>
                                 </tr>
                             </thead>
                             <tbody>
