@@ -1,4 +1,4 @@
-const CACHE_NAME = 'osr-elevation-cache-v6';
+const CACHE_NAME = 'osr-elevation-cache-v7';
 const urlsToCache = [
   './',
   './index.html',

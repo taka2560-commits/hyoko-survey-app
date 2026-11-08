@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="henjo-core.js"></script>
+    <script src="hyoko-core.js"></script>
 
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon.png">
@@ -61,6 +62,8 @@
         html.dark .key-enter { background: #059669 !important; border: 1px solid #10b981 !important; color: #fff !important; }
         html.dark .key-clear { background: #450a0a !important; border: 1px solid #991b1b !important; color: #f87171 !important; }
         html.dark .lcd-display { background: #0b1329; border: 2px solid #3b82f6; color: #4ade80; }
+        .tail-digit { text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 3px; color: #dc2626; }
+        html.dark .tail-digit { color: #fbbf24; }
         .num { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 
         /* ==================== A3横 帳票（印刷タブの再現） ==================== */
@@ -437,6 +440,7 @@ function kpLoad() {
     });
     kp.comp = 'x';
     kp.fresh = true;
+    kp.tailBase = null; kp.tailTyped = '';
 }
 function kpParse(t) {
     t = String(t).trim();
@@ -458,7 +462,7 @@ function kpCommit(c) {
 function kpSelect(c) {
     if (c === kp.comp) return;
     if (!kpCommit(kp.comp)) { kpRender(); return; }
-    kp.comp = c; kp.fresh = true; kp.msg = '';
+    kp.comp = c; kp.fresh = true; kp.msg = ''; kp.tailBase = null; kp.tailTyped = '';
     kpRender();
 }
 function kpMovePoint(d) {
@@ -479,6 +483,21 @@ function kpPress(key) {
     const c = kp.comp, p = kp.list[kp.idx];
     let b = kp.buf[c];
     kp.msg = '';
+    const T = window.HyokoCore;
+    // 初期値・前回値コピー直後は、数字で末尾の桁だけ置き換える
+    if (kp.tailBase != null && /^[0-9]$/.test(key)) {
+        kp.tailTyped += key;
+        kp.buf[c] = T.applyTail(kp.tailBase, kp.tailTyped).text;
+        kpRender();
+        return;
+    }
+    if (kp.tailBase != null && key === 'BS' && kp.tailTyped) {
+        kp.tailTyped = kp.tailTyped.slice(0, -1);
+        kp.buf[c] = T.applyTail(kp.tailBase, kp.tailTyped).text;
+        kpRender();
+        return;
+    }
+    if (key !== 'ENTER') { kp.tailBase = null; kp.tailTyped = ''; }
     if (/^[0-9]$/.test(key)) {
         if (kp.fresh) { b = ''; kp.fresh = false; }
         if (b.replace(/[^0-9]/g, '').length < 12) b += key;
@@ -497,16 +516,20 @@ function kpPress(key) {
     } else if (key === 'INIT') {
         kp.fresh = false;
         b = p[c].toFixed(3);
+        kp.tailBase = b; kp.tailTyped = '';
     } else if (key === 'PREV') {
         const pv = kpPrevValue(p, c);
         if (pv === null) { kp.msg = '前回値がありません'; kpRender(); return; }
         kp.fresh = false;
         b = pv.toFixed(3);
+        kp.tailBase = b; kp.tailTyped = '';
     } else if (key === 'BLANK') {
         kp.buf[c] = '';
         return kpPress('ENTER');
     } else if (key === 'ENTER') {
+        kp.tailBase = null; kp.tailTyped = '';
         if (!kpCommit(c)) { kpRender(); return; }
+        if (navigator.vibrate) navigator.vibrate(15);
         const ci = C.COMPS.indexOf(c);
         if (ci < 2) {
             kp.comp = C.COMPS[ci + 1]; kp.fresh = true;
@@ -549,9 +572,10 @@ function kpRender() {
     }).join('');
     document.getElementById('kp-target').innerText = `${p.name}　${C.COMP_LABEL[kp.comp]}`;
     const b = kp.buf[kp.comp];
-    document.getElementById('kp-lcd').innerText = b === '' ? '0.000' : b;
+    if (kp.tailBase != null) document.getElementById('kp-lcd').innerHTML = window.HyokoCore.tailHtml(kp.tailBase, kp.tailTyped);
+    else document.getElementById('kp-lcd').innerText = b === '' ? '0.000' : b;
     document.getElementById('kp-lcd').style.opacity = (b === '' || kp.fresh) ? '0.55' : '1';
-    document.getElementById('kp-msg').innerText = kp.msg || '';
+    document.getElementById('kp-msg').innerText = kp.msg || (kp.tailBase != null ? (kp.tailTyped ? `末尾${kp.tailTyped.length}桁を置換中` : '数字で末尾の桁を置換') : '');
     const hasImport = !!C.parseImport(round.importText, state.settings).okMap[p.name];
     document.getElementById('kp-revert').style.visibility = hasImport ? 'visible' : 'hidden';
 }

@@ -69,5 +69,12 @@ assert.deepStrictEqual(H.splitId('SA5'), { no: '', name: 'SA5', kind: '' });
 const csv = H.toCSV(p);
 assert.ok(csv.includes('⑥ アングル (OP),+7.900,2026-05-13,+7.899,-1,-1,↓,+7.899,-1,0,↓,+7.897,-3,-2,↓,+7.895,-5,-2,↓'));
 
+// 末尾桁の置き換え入力
+assert.strictEqual(H.applyTail('+7.899', '8').text, '+7.898');
+assert.strictEqual(H.applyTail('+7.899', '12').text, '+7.812');
+assert.strictEqual(H.applyTail('+7.899', '2345').text, '+2.345');       // 小数点はそのまま
+assert.strictEqual(H.applyTail('-147795.338', '2').text, '-147795.332'); // 変状計測の座標
+assert.deepStrictEqual(H.applyTail('+7.899', '').positions, []);
+assert.strictEqual(H.tailHtml('+7.899', '8'), '+7.89<span class="tail-digit">8</span>');
 console.log('hyoko-core: all tests passed');
 function pick(c) { return [c.dInit, c.dPrev, c.dir]; }

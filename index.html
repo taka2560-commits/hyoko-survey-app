@@ -131,6 +131,22 @@
             color: #ffffff !important;
         }
 
+        /* ==================== メニュー・入力補助 ==================== */
+        .menu-item {
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+            min-height: 64px; border: 2px solid #0f172a; border-radius: 12px; font-size: 22px; font-weight: 900;
+            background: #f1f5f9;
+        }
+        .menu-item span:last-child { font-size: 11px; }
+        html.dark .menu-item { background: #1e293b; border-color: #475569; }
+        .menu-item:active { transform: scale(0.95); }
+        @keyframes flashOk { 0% { background-color: #86efac; } 100% { background-color: transparent; } }
+        .row-flash > td { animation: flashOk .6s ease-out; }
+        #table-body tr { -webkit-touch-callout: none; touch-action: manipulation; }
+        .unmeasured-mark { display: inline-block; width: 6px; height: 6px; border-radius: 9999px; background: #f97316; margin-right: 4px; vertical-align: middle; }
+        .tail-digit { text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 3px; color: #dc2626; }
+        html.dark .tail-digit { color: #fbbf24; }
+
         /* ==================== 10キーパッド共通 ==================== */
         .key-btn {
             font-weight: 900;
@@ -253,55 +269,14 @@
 
     <!-- メインアプリケーション画面 (dvhを完全に適用して画面一杯に固定) -->
     <div id="main-app-container" class="h-full max-h-[100dvh] flex flex-col justify-between w-full overflow-hidden">
-        <!-- ヘッダーエリア (縮まないように固定) -->
-        <div class="bg-slate-100 dark:bg-slate-900 p-1.5 md:p-2 rounded-xl border-2 border-slate-950 dark:border-slate-800 mb-1.5 shrink-0 shadow">
-            <div class="flex justify-between items-center gap-1 flex-wrap">
-                <!-- プロジェクト選択 & 管理 -->
-                <div class="flex-grow min-w-[140px] flex items-center gap-1">
-                    <div class="w-full">
-                        <select id="project-selector" onchange="selectProject(this.value)" class="bg-white dark:bg-slate-950 text-slate-950 dark:text-yellow-400 font-black py-1 px-1.5 rounded border-2 border-slate-950 dark:border-slate-700 text-xs focus:outline-none w-full max-w-[150px]">
-                            <!-- JSで動的に追加 -->
-                        </select>
-                    </div>
-                    <button onclick="openProjectManager()" class="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 px-2 py-1 rounded border-2 border-slate-950 dark:border-slate-700 text-[10px] md:text-xs font-black shrink-0 text-slate-950 dark:text-slate-200">
-                        ⚙️ 管理
-                    </button>
-                </div>
-                
-                <!-- PDF出力、テーマ切替、スマホ登録、月次 -->
-                <div class="flex flex-wrap justify-end items-center gap-1 mt-1 md:mt-0 ml-auto">
-                    <!-- 水辺変状計測（別ページ） -->
-                    <a href="henjo.html" class="bg-orange-500 hover:bg-orange-600 text-white font-black text-[10px] md:text-xs py-1.5 px-2 rounded-lg border-2 border-orange-700 shadow active:scale-95 transition-all">
-                        📐 変状計測
-                    </a>
-
-                    <!-- 場内 測点配置図（2026/08/26時点） -->
-                    <a href="hyoko_haichi.pdf" target="_blank" rel="noopener" class="bg-rose-600 hover:bg-rose-700 text-white font-black text-[10px] md:text-xs py-1.5 px-2 rounded-lg border-2 border-rose-800 shadow active:scale-95 transition-all">
-                        📍 配置図
-                    </a>
-
-                    <!-- スマホ向け追加ガイドボタン -->
-                    <button onclick="openGuideModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] md:text-xs py-1.5 px-2 rounded-lg border-2 border-indigo-700 shadow active:scale-95 transition-all">
-                        📱 スマホ登録手順
-                    </button>
-
-                    <!-- CSV出力ボタン -->
-                    <button onclick="exportCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] md:text-xs py-1.5 px-2 rounded-lg border-2 border-emerald-800 dark:border-emerald-500 shadow active:scale-95 transition-all">
-                        📊 CSV出力
-                    </button>
-
-                    <!-- PDF印刷プレビューボタン -->
-                    <button onclick="openPrintPreview()" class="bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] md:text-xs py-1.5 px-2 rounded-lg border-2 border-blue-800 dark:border-blue-500 shadow active:scale-95 transition-all">
-                        📄 PDF出力
-                    </button>
-
-                    <!-- 画面モード切替 -->
-                    <button id="theme-toggle-btn" onclick="toggleTheme()" class="bg-slate-200 dark:bg-slate-800 text-slate-950 dark:text-slate-100 font-black text-[10px] md:text-xs py-1.5 px-2 rounded border-2 border-slate-950 dark:border-slate-700 active:scale-95 shadow transition-all">
-                        🌙 ダーク
-                    </button>
-
-                </div>
-            </div>
+        <!-- ヘッダー（1行）：現場・進捗・メニュー -->
+        <div class="bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border-2 border-slate-950 dark:border-slate-800 mb-1.5 shrink-0 shadow flex items-center gap-1">
+            <select id="project-selector" onchange="selectProject(this.value)" class="flex-1 min-w-0 bg-white dark:bg-slate-950 text-slate-950 dark:text-yellow-400 font-black py-1.5 px-1.5 rounded border-2 border-slate-950 dark:border-slate-700 text-xs focus:outline-none">
+                <!-- JSで動的に追加 -->
+            </select>
+            <span id="progress-chip" class="shrink-0 px-2 py-1.5 rounded-lg text-[11px] font-black border-2 border-slate-950 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-950 dark:text-slate-100">0/0点</span>
+            <a href="henjo.html" class="shrink-0 bg-orange-500 text-white font-black text-[11px] py-1.5 px-2 rounded-lg border-2 border-orange-700 shadow active:scale-95">📐 変状</a>
+            <button onclick="openMenu()" aria-label="メニュー" class="shrink-0 bg-slate-900 dark:bg-slate-700 text-white font-black text-base leading-none py-1.5 px-3 rounded-lg border-2 border-slate-950 active:scale-95">⋯</button>
         </div>
 
         <!-- 計測回（第1回〜第12回）の選択・計測日・次の回へ -->
@@ -332,11 +307,10 @@
                     <thead class="bg-slate-100 dark:bg-slate-900 sticky top-0 text-slate-950 dark:text-slate-300 text-xs z-10 font-black border-b border-slate-300 dark:border-slate-800">
                         <tr>
                             <th id="th-select" class="py-2.5 px-1 text-center w-[12%] transition-all duration-300 hidden bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400">削除</th>
-                            <th class="py-2.5 px-2 text-left w-[22%] text-[11px]">点名</th>
-                            <th class="py-2.5 px-1 text-right w-[17%] text-[11px]">初期値</th>
-                            <th id="th-prev" class="py-2.5 px-1 text-right w-[17%] text-[11px] leading-tight">前回</th>
-                            <th id="th-curr" class="py-2.5 px-1 text-right w-[17%] text-[11px] leading-tight">今回</th>
-                            <th id="th-remarks" class="py-2.5 px-2 text-left w-[17%] text-[11px]">備考</th>
+                            <th id="th-name" class="py-2 px-2 text-left text-[11px]" style="width:40%">点名</th>
+                            <th id="th-init" class="hidden py-2 px-1 text-right text-[11px]" style="width:24%">初期値</th>
+                            <th id="th-prev" class="py-2 px-1 text-right text-[11px] leading-tight" style="width:28%">前回</th>
+                            <th id="th-curr" class="py-2 px-1 text-right text-[11px] leading-tight" style="width:32%">今回</th>
                         </tr>
                     </thead>
                     <tbody id="table-body" class="text-xs font-bold divide-y divide-slate-200 dark:divide-slate-850">
@@ -346,12 +320,12 @@
             </div>
             
             <!-- コントロールバー (整理モードの時のみ表示) -->
-            <div id="table-controls" class="p-1.5 text-center bg-slate-50 dark:bg-slate-900/40 mt-auto border-t-2 border-slate-950 dark:border-slate-800 flex justify-center gap-2 shrink-0">
+            <div id="table-controls" class="hidden p-1.5 text-center bg-slate-50 dark:bg-slate-900/40 mt-auto border-t-2 border-slate-950 dark:border-slate-800 flex justify-center gap-2 shrink-0">
                 <button id="normal-add-btn" onclick="addNewPoint()" class="inline-flex items-center gap-1.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 active:scale-95 text-slate-950 dark:text-slate-200 font-black text-[10px] md:text-xs py-1.5 px-3 rounded-lg border-2 border-slate-950 dark:border-slate-700 transition-all">
                     <span>➕</span> 新しい点名を追加
                 </button>
                 <button id="delete-selected-btn" onclick="deleteCheckedPoints()" class="hidden inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black text-xs py-1.5 px-3 rounded-lg border-2 border-red-950 transition-all shadow-md">
-                    <span>🗑️</span> 選択した点を一括削除する（確定）
+                    <span>🗑️</span> 選択した点を削除
                 </button>
             </div>
         </div>
@@ -439,6 +413,43 @@
             <!-- カラムコンテンツエリア -->
             <div id="print-columns-container" class="grid gap-3">
                 <!-- JSで動的生成 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== ⋯ メニュー（使用頻度の低い操作をまとめる） ==================== -->
+    <div id="menu-sheet" class="hidden fixed inset-0 z-40 flex items-end justify-center bg-black/60" onclick="if(event.target===this)closeMenu()">
+        <div class="w-full max-w-md bg-white dark:bg-slate-900 border-2 border-slate-950 dark:border-slate-700 rounded-t-2xl p-3 shadow-2xl" style="padding-bottom: max(12px, env(safe-area-inset-bottom));">
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-sm font-black text-slate-950 dark:text-slate-100">メニュー</span>
+                <button onclick="closeMenu()" class="text-xl font-black text-slate-900 dark:text-slate-300 px-2">✕</button>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-slate-950 dark:text-slate-100">
+                <button onclick="closeMenu();openPrintPreview()" class="menu-item">📄<span>PDF出力</span></button>
+                <button onclick="closeMenu();exportCSV()" class="menu-item">📊<span>CSV出力</span></button>
+                <a href="hyoko_haichi.pdf" target="_blank" rel="noopener" onclick="closeMenu()" class="menu-item">📍<span>配置図</span></a>
+                <button onclick="closeMenu();openProjectManager()" class="menu-item">⚙️<span>現場・バックアップ</span></button>
+                <button onclick="toggleTheme()" class="menu-item"><span id="theme-toggle-btn" class="contents">🌙</span><span id="theme-toggle-label">ダーク</span></button>
+                <button onclick="closeMenu();openGuideModal()" class="menu-item">📱<span>スマホ登録手順</span></button>
+            </div>
+            <p id="backup-note" class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-2"></p>
+        </div>
+    </div>
+
+    <!-- ==================== 備考の編集（行の長押し） ==================== -->
+    <div id="remarks-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70" onclick="if(event.target===this)closeRemarks()">
+        <div class="bg-white dark:bg-slate-900 border-2 border-slate-950 dark:border-slate-700 rounded-xl p-4 max-w-sm w-full shadow-2xl">
+            <h3 id="remarks-title" class="text-sm font-black text-slate-950 dark:text-slate-100 mb-2">備考</h3>
+            <input id="remarks-input" type="text" placeholder="例：亡失、再設置、使用禁止 など" class="w-full bg-white dark:bg-slate-950 border-2 border-slate-950 dark:border-slate-700 rounded px-2 py-2 text-sm font-bold text-slate-950 dark:text-slate-100 focus:outline-none">
+            <div class="flex flex-wrap gap-1.5 mt-2">
+                <button onclick="setRemarksQuick('亡失')" class="text-xs font-black px-2 py-1 rounded border border-slate-500 bg-slate-100 dark:bg-slate-800 text-slate-950 dark:text-slate-100">亡失</button>
+                <button onclick="setRemarksQuick('再設置')" class="text-xs font-black px-2 py-1 rounded border border-slate-500 bg-slate-100 dark:bg-slate-800 text-slate-950 dark:text-slate-100">再設置</button>
+                <button onclick="setRemarksQuick('使用禁止')" class="text-xs font-black px-2 py-1 rounded border border-slate-500 bg-slate-100 dark:bg-slate-800 text-slate-950 dark:text-slate-100">使用禁止</button>
+                <button onclick="setRemarksQuick('')" class="text-xs font-black px-2 py-1 rounded border border-red-500 text-red-600">消去</button>
+            </div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button onclick="closeRemarks()" class="px-4 py-2 bg-slate-200 dark:bg-slate-800 border-2 border-slate-950 dark:border-slate-700 rounded-lg font-black text-xs text-slate-900 dark:text-slate-200">キャンセル</button>
+                <button onclick="saveRemarks()" class="px-4 py-2 bg-emerald-600 border-2 border-emerald-800 rounded-lg font-black text-white text-xs">保存</button>
             </div>
         </div>
     </div>
@@ -721,11 +732,13 @@
             const metaTheme = document.getElementById('meta-theme-color');
             if (isDarkMode) {
                 document.documentElement.classList.add('dark');
-                toggleBtn.innerText = "☀️ ライト";
+                toggleBtn.innerText = "☀️";
+                document.getElementById('theme-toggle-label').innerText = "ライト";
                 if(metaTheme) metaTheme.setAttribute('content', '#090d16');
             } else {
                 document.documentElement.classList.remove('dark');
-                toggleBtn.innerText = "🌙 ダーク";
+                toggleBtn.innerText = "🌙";
+                document.getElementById('theme-toggle-label').innerText = "ダーク";
                 if(metaTheme) metaTheme.setAttribute('content', '#ffffff');
             }
         }
@@ -831,7 +844,9 @@
                 const baseClass = isActive 
                     ? "flex-1 py-2 text-[10px] md:text-xs rounded-lg font-black transition-all shadow-md bg-blue-700 dark:bg-blue-600 text-white border-2 border-slate-950 dark:border-blue-500"
                     : "flex-1 py-2 text-[10px] md:text-xs rounded-lg font-black transition-all shadow bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-300 border-2 border-slate-950 dark:border-slate-700";
-                return `<button id="tab-${idx}" onclick="switchTab(${idx})" class="${baseClass}">${tab.tabName}</button>`;
+                const done = countMeasured(tab.data), total = tab.data.length;
+                const cnt = total ? `<span class="block text-[9px] leading-none mt-0.5 ${done === total ? 'text-emerald-500' : 'opacity-80'}">${done === total ? '✓ ' : ''}${done}/${total}</span>` : '';
+                return `<button id="tab-${idx}" onclick="switchTab(${idx})" class="${baseClass} leading-tight">${tab.tabName}${cnt}</button>`;
             }).join('');
         }
 
@@ -871,43 +886,49 @@
                 thSelect.classList.add('hidden');
             }
 
+            // 列幅（通常：点名・前回・今回 ／ 整理モード：削除・点名・初期値・前回）
+            document.getElementById('th-init').classList.toggle('hidden', !isEditMode);
+            document.getElementById('th-curr').classList.toggle('hidden', isEditMode);
+            document.getElementById('th-name').style.width = isEditMode ? '34%' : '40%';
+            document.getElementById('th-prev').style.width = isEditMode ? '27%' : '28%';
+
             body.innerHTML = items.map((p, i) => {
                 const isSelected = i === currentIndex;
                 const baseClass = i % 2 === 0 ? 'bg-slate-50 dark:bg-slate-900/40' : 'bg-white dark:bg-slate-950';
                 const rowClass = (!isEditMode && isSelected) ? 'row-active' : baseClass;
-                
+                const measured = H.num(getCurr(p)) !== null;
+                const remarks = p.remarks ? `<div class="text-[10px] font-bold text-blue-700 dark:text-sky-400 truncate">📝 ${escHtml(p.remarks)}</div>` : '';
+
                 return `
-                    <tr class="${rowClass} hover:bg-slate-100 dark:hover:bg-slate-900/80 transition-all cursor-pointer" onclick="selectRow(${i}, event)">
+                    <tr id="row-${i}" class="${rowClass} hover:bg-slate-100 dark:hover:bg-slate-900/80 transition-all cursor-pointer"
+                        onclick="selectRow(${i}, event)" oncontextmenu="event.preventDefault()"
+                        onpointerdown="lpStart(${i}, event)" onpointerup="lpEnd()" onpointercancel="lpEnd()" onpointerleave="lpEnd()">
                         <!-- 削除選択チェック (整理モード時のみ) -->
-                        <td class="py-3 px-1 text-center align-middle ${isEditMode ? '' : 'hidden'}" onclick="event.stopPropagation();">
+                        <td class="py-2.5 px-1 text-center align-middle ${isEditMode ? '' : 'hidden'}" onclick="event.stopPropagation();">
                             <div class="flex items-center justify-center gap-1">
                                 <input type="checkbox" name="delete-checkbox" value="${i}" class="w-5 h-5 rounded accent-red-600 bg-white border-2 border-slate-950 cursor-pointer">
                             </div>
                         </td>
-                        <!-- 点名 -->
-                        <td class="py-3 px-2 align-middle font-black text-slate-950 dark:text-slate-100">
+                        <!-- 点名（備考は下に小さく） -->
+                        <td class="py-2.5 px-2 align-middle font-black text-slate-950 dark:text-slate-100">
                             ${isEditMode ? `
-                                <input type="text" value="${p.id}" 
+                                <input type="text" value="${escHtml(p.id)}" 
                                        class="bg-white dark:bg-slate-900 border-2 border-slate-950 dark:border-slate-750 rounded px-1.5 py-0.5 text-xs font-mono font-black text-blue-850 dark:text-blue-400 w-full focus:outline-none"
                                        onchange="updatePointId(${i}, this.value)"
                                        onclick="event.stopPropagation();">
                             ` : `
-                                <span class="font-mono text-xs">${p.id}</span>
+                                <span class="font-mono text-xs">${measured ? '' : '<span class="unmeasured-mark" title="未入力"></span>'}${escHtml(p.id)}</span>${remarks}
                             `}
                         </td>
-                        <!-- 初期値 -->
-                        <td class="py-3 px-1 text-right font-mono text-slate-500 dark:text-slate-400 text-xs align-middle">
-                            ${isEditMode ? `
-                                <input type="text" value="${p.init || ""}" 
-                                       class="bg-white dark:bg-slate-900 border border-slate-950 dark:border-slate-700 rounded px-1 py-0.5 text-xs font-mono text-right w-full focus:outline-none"
-                                       onchange="updatePointInit(${i}, this.value)"
-                                       onclick="event.stopPropagation();">
-                            ` : `
-                                ${p.init || "---"}
-                            `}
+                        <!-- 初期値（整理モードのみ） -->
+                        <td class="py-2.5 px-1 text-right font-mono text-slate-500 dark:text-slate-400 text-xs align-middle ${isEditMode ? '' : 'hidden'}">
+                            <input type="text" value="${p.init || ""}" 
+                                   class="bg-white dark:bg-slate-900 border border-slate-950 dark:border-slate-700 rounded px-1 py-0.5 text-xs font-mono text-right w-full focus:outline-none"
+                                   onchange="updatePointInit(${i}, this.value)"
+                                   onclick="event.stopPropagation();">
                         </td>
-                        <!-- 前月値 -->
-                        <td class="py-3 px-1 text-right font-mono text-slate-500 dark:text-slate-400 text-xs align-middle">
+                        <!-- 前回（下に初期値） -->
+                        <td class="py-2.5 px-1 text-right font-mono text-slate-600 dark:text-slate-400 text-xs align-middle">
                             ${(isEditMode && curRound() > 1) ? `
                                 <input type="text" value="${getPrev(p)}" 
                                        class="bg-white dark:bg-slate-900 border border-slate-950 dark:border-slate-700 rounded px-1 py-0.5 text-xs font-mono text-right w-full focus:outline-none"
@@ -915,25 +936,77 @@
                                        onclick="event.stopPropagation();">
                             ` : `
                                 ${getPrev(p) || "---"}
+                                ${(!isEditMode && curRound() > 1) ? `<div class="text-[9px] text-slate-400 dark:text-slate-500 leading-tight">初期 ${p.init || '---'}</div>` : ''}
                             `}
                         </td>
-                        <!-- 当月値 -->
-                        <td class="py-3 px-1 text-right font-mono text-sm font-black text-slate-950 dark:text-slate-100 align-middle">
-                            ${getCurr(p) || ((!isEditMode && isSelected) ? '<span class="text-slate-450 dark:text-slate-600 animate-pulse">0.000</span>' : '---')}
+                        <!-- 今回 -->
+                        <td class="py-2.5 px-1 text-right font-mono text-sm font-black text-slate-950 dark:text-slate-100 align-middle ${isEditMode ? 'hidden' : ''}">
+                            ${getCurr(p) || (isSelected ? '<span class="text-slate-400 dark:text-slate-600 animate-pulse">0.000</span>' : '---')}
                             ${diffBadge(p)}
-                        </td>
-                        <!-- 備考 -->
-                        <td class="py-3 px-2 text-left font-bold text-xs align-middle">
-                            <input type="text" value="${p.remarks || ""}" 
-                                   placeholder="備考を追加..." 
-                                   class="bg-transparent text-slate-800 dark:text-slate-300 w-full focus:outline-none border-b border-transparent focus:border-blue-500 font-normal py-0.5"
-                                   onchange="updatePointRemarks(${i}, this.value)"
-                                   onclick="event.stopPropagation();">
                         </td>
                     </tr>
                 `;
             }).join('');
+            renderProgress();
         }
+
+        function escHtml(t) {
+            return String(t == null ? '' : t).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+        }
+
+        // ---------- 進捗（今回の入力済み点数） ----------
+        function countMeasured(points) {
+            const r = curRound();
+            return points.filter(p => H.num(H.getVal(p, r)) !== null).length;
+        }
+        function renderProgress() {
+            const proj = getCurrentProject();
+            if (!proj) return;
+            const all = H.allPoints(proj);
+            const done = countMeasured(all);
+            const chip = document.getElementById('progress-chip');
+            chip.innerText = `${done}/${all.length}点`;
+            chip.classList.toggle('bg-emerald-500', done === all.length && all.length > 0);
+            chip.classList.toggle('text-white', done === all.length && all.length > 0);
+            updateTabUI();
+        }
+
+        // ---------- 行の長押しで備考を編集 ----------
+        let lpTimer = null, lpFired = false, remarksIdx = null;
+        function lpStart(i, e) {
+            lpFired = false;
+            clearTimeout(lpTimer);
+            lpTimer = setTimeout(() => { lpFired = true; openRemarks(i); }, 550);
+        }
+        function lpEnd() { clearTimeout(lpTimer); }
+        function openRemarks(i) {
+            const p = getCurrentProject().tabs[currentTab].data[i];
+            if (!p) return;
+            remarksIdx = i;
+            if (navigator.vibrate) navigator.vibrate(20);
+            document.getElementById('remarks-title').innerText = `備考：${p.id}`;
+            const inp = document.getElementById('remarks-input');
+            inp.value = p.remarks || '';
+            document.getElementById('remarks-modal').classList.remove('hidden');
+        }
+        function setRemarksQuick(t) { document.getElementById('remarks-input').value = t; saveRemarks(); }
+        function saveRemarks() {
+            const p = getCurrentProject().tabs[currentTab].data[remarksIdx];
+            if (p) { p.remarks = document.getElementById('remarks-input').value.trim(); saveState(); }
+            closeRemarks();
+            renderTable();
+        }
+        function closeRemarks() { document.getElementById('remarks-modal').classList.add('hidden'); remarksIdx = null; }
+
+        // ---------- ⋯ メニュー ----------
+        function openMenu() {
+            const last = localStorage.getItem('survey_last_backup');
+            document.getElementById('backup-note').innerText = last
+                ? `最終バックアップ：${last.replace(/-/g, '/')}`
+                : '⚠ まだバックアップを保存していません（「現場・バックアップ」から保存できます）';
+            document.getElementById('menu-sheet').classList.remove('hidden');
+        }
+        function closeMenu() { document.getElementById('menu-sheet').classList.add('hidden'); }
 
         // 今回の値の下に 初期値との差 / 前回との差（mm）を表示。3mm以上は黄色（基準点の更新対象）
         function diffBadge(p) {
@@ -944,7 +1017,9 @@
         }
 
         function selectRow(idx, event) {
+            if (lpFired) { lpFired = false; return; }   // 長押し直後のクリックは無視
             if (isEditMode) return; 
+            tailBase = null;
             currentIndex = idx;
             const project = getCurrentProject();
             const pt = project.tabs[currentTab].data[currentIndex];
@@ -961,17 +1036,20 @@
             const normalAddBtn = document.getElementById('normal-add-btn');
             const deleteSelectedBtn = document.getElementById('delete-selected-btn');
 
+            // 追加・削除ボタンのバーは整理モードの時だけ表示（入力中は表を広く使う）
+            const controls = document.getElementById('table-controls');
             if (isEditMode) {
-                btn.className = "bg-amber-500 border-2 border-slate-950 text-slate-950 px-3 py-3 rounded-lg text-xs font-black shrink-0 flex items-center gap-1 active:scale-95 transition-all";
+                btn.className = "bg-amber-500 border-2 border-slate-950 text-slate-950 px-2.5 py-2 rounded-lg text-[10px] md:text-xs font-black shrink-0 flex items-center gap-1 active:scale-95 transition-all";
                 label.innerText = "戻る (確定)";
                 keypad.classList.add('hidden');
-                normalAddBtn.classList.add('hidden');
+                controls.classList.remove('hidden');
+                normalAddBtn.classList.remove('hidden');
                 deleteSelectedBtn.classList.remove('hidden');
             } else {
-                btn.className = "bg-slate-200 dark:bg-slate-800 border-2 border-slate-950 dark:border-slate-700 text-slate-950 dark:text-slate-200 px-3 py-3 rounded-lg text-xs font-black shrink-0 flex items-center gap-1 active:scale-95 transition-all";
+                btn.className = "bg-slate-200 dark:bg-slate-800 border-2 border-slate-950 dark:border-slate-700 text-slate-950 dark:text-slate-200 px-2.5 py-2 rounded-lg text-[10px] md:text-xs font-black shrink-0 flex items-center gap-1 active:scale-95 transition-all";
                 label.innerText = "追加・削除";
                 keypad.classList.remove('hidden');
-                normalAddBtn.classList.remove('hidden');
+                controls.classList.add('hidden');
                 deleteSelectedBtn.classList.add('hidden');
                 saveState();
             }
@@ -1067,50 +1145,63 @@
             );
         }
 
+        // 末尾桁の置き換えモード（前回値コピー直後に数字を打つと末尾の桁だけ置き換わる）
+        let tailBase = null, tailTyped = '';
+
         function press(key) {
             if (isEditMode) return;
             const project = getCurrentProject();
             const activePoint = project.tabs[currentTab].data[currentIndex];
             if (!activePoint) return;
 
-            if (key === 'C') {
-                currentInput = "";
-            } else if (key === 'BS') {
-                currentInput = currentInput.slice(0, -1);
-            } else if (key === '+/-') {
-                if (currentInput.startsWith('-')) {
-                    currentInput = currentInput.slice(1);
-                    if (!currentInput.startsWith('+') && currentInput !== "") {
-                        currentInput = '+' + currentInput;
-                    }
-                } else if (currentInput.startsWith('+')) {
-                    currentInput = '-' + currentInput.slice(1);
-                } else if (currentInput !== "") {
-                    currentInput = '-' + currentInput;
-                } else {
-                    currentInput = '-';
-                }
-            } else if (key === '.') {
-                if (!currentInput.includes('.')) {
-                    currentInput += '.';
-                }
-            } else if (key === 'COPY') {
-                // 前回値（前回が空欄なら直近の計測値、なければ初期値）
-                const src = H.latestBefore(activePoint, curRound());
-                if (src) {
-                    currentInput = src;
-                } else {
-                    showModal("前回値なし", "コピー元の前回データが存在しません。", closeModal, true);
-                    return;
-                }
+            if (tailBase !== null && /^[0-9]$/.test(key)) {
+                tailTyped += key;
+                currentInput = H.applyTail(tailBase, tailTyped).text;
+            } else if (tailBase !== null && key === 'BS' && tailTyped) {
+                tailTyped = tailTyped.slice(0, -1);
+                currentInput = H.applyTail(tailBase, tailTyped).text;
             } else if (key === 'ENTER') {
                 saveAndNext();
                 return;
             } else {
-                if (currentInput === "" && key !== '0') {
-                    currentInput = '+';
+                tailBase = null; tailTyped = '';
+                if (key === 'C') {
+                    currentInput = "";
+                } else if (key === 'BS') {
+                    currentInput = currentInput.slice(0, -1);
+                } else if (key === '+/-') {
+                    if (currentInput.startsWith('-')) {
+                        currentInput = currentInput.slice(1);
+                        if (!currentInput.startsWith('+') && currentInput !== "") {
+                            currentInput = '+' + currentInput;
+                        }
+                    } else if (currentInput.startsWith('+')) {
+                        currentInput = '-' + currentInput.slice(1);
+                    } else if (currentInput !== "") {
+                        currentInput = '-' + currentInput;
+                    } else {
+                        currentInput = '-';
+                    }
+                } else if (key === '.') {
+                    if (!currentInput.includes('.')) {
+                        currentInput += '.';
+                    }
+                } else if (key === 'COPY') {
+                    // 前回値（前回が空欄なら直近の計測値、なければ初期値）
+                    const src = H.latestBefore(activePoint, curRound());
+                    if (src) {
+                        currentInput = src;
+                        tailBase = src; tailTyped = '';
+                    } else {
+                        showModal("前回値なし", "コピー元の前回データが存在しません。", closeModal, true);
+                        return;
+                    }
+                } else {
+                    if (currentInput === "" && key !== '0') {
+                        currentInput = '+';
+                    }
+                    currentInput += key;
                 }
-                currentInput += key;
             }
 
             setCurr(activePoint, currentInput);
@@ -1119,9 +1210,26 @@
             updateActivePointLabel();
         }
 
-        function saveAndNext() {
+        // ENTER：前回との差が大きければ確認してから確定
+        function saveAndNext(force) {
             const project = getCurrentProject();
             const activePoint = project.tabs[currentTab].data[currentIndex];
+            if (activePoint && currentInput && !force) {
+                const v = parseFloat(currentInput);
+                const ref = H.num(H.latestBefore(activePoint, curRound()));
+                if (!isNaN(v) && ref !== null && Math.abs(v - ref) * 1000 >= H.ALERT_MM) {
+                    const d = H.round0((v - ref) * 1000);
+                    showModal(
+                        "⚠️ 値の確認",
+                        `${activePoint.id}\n前回 ${H.fmtVal(ref)} → 今回 ${H.fmtVal(v)}（${d > 0 ? '+' : ''}${d}mm）\n前回との差が ${H.ALERT_MM}mm 以上です。この値で確定しますか？`,
+                        () => { closeModal(); saveAndNext(true); }
+                    );
+                    document.getElementById('modal-confirm-btn').innerText = 'この値で確定';
+                    return;
+                }
+            }
+            tailBase = null; tailTyped = '';
+            const savedIdx = currentIndex;
             if (activePoint && currentInput) {
                 const numericValue = parseFloat(currentInput);
                 if (!isNaN(numericValue)) {
@@ -1130,21 +1238,46 @@
                 }
             }
             saveState();
+            if (navigator.vibrate) navigator.vibrate(15);   // 手袋でも確定が分かるよう振動（対応端末のみ）
 
-            if (currentIndex < project.tabs[currentTab].data.length - 1) {
+            const items = project.tabs[currentTab].data;
+            if (currentIndex < items.length - 1) {
                 currentIndex++;
-                currentInput = getCurr(project.tabs[currentTab].data[currentIndex]);
+                currentInput = getCurr(items[currentIndex]);
                 renderTable();
+                flashRow(savedIdx);
                 updateActivePointLabel();
                 scrollToActiveRow();
             } else {
-                showModal(
-                    "🎉 計測完了",
-                    "この区分の標高データがすべて入力されました。",
-                    closeModal,
-                    true
-                );
+                renderTable();
+                flashRow(savedIdx);
+                // 区分の最後：未入力の残る区分があれば案内
+                const all = H.allPoints(project);
+                const done = countMeasured(all);
+                const nextTab = project.tabs.findIndex((t, ti) => ti !== currentTab && countMeasured(t.data) < t.data.length);
+                if (done === all.length) {
+                    showModal("🎉 計測完了", `第${curRound()}回の全${all.length}点の入力が終わりました。`, closeModal, true);
+                } else if (nextTab >= 0) {
+                    const t = project.tabs[nextTab];
+                    showModal("✓ この区分は最後まで入力しました",
+                        `全体 ${done}/${all.length}点。「${t.tabName}」に未入力が ${t.data.length - countMeasured(t.data)}点あります。移動しますか？`,
+                        () => { closeModal(); switchTab(nextTab); jumpToFirstUnmeasured(); });
+                    document.getElementById('modal-confirm-btn').innerText = '移動する';
+                } else {
+                    showModal("✓ この区分は最後まで入力しました", `全体 ${done}/${all.length}点（未入力の点は表の「●」印）。`, closeModal, true);
+                }
             }
+        }
+
+        function jumpToFirstUnmeasured() {
+            const items = getCurrentProject().tabs[currentTab].data;
+            const idx = items.findIndex(p => H.num(getCurr(p)) === null);
+            if (idx >= 0) { currentIndex = idx; currentInput = ''; renderTable(); updateActivePointLabel(); scrollToActiveRow(); }
+        }
+
+        function flashRow(i) {
+            const row = document.getElementById('row-' + i);
+            if (row) { row.classList.add('row-flash'); setTimeout(() => row.classList.remove('row-flash'), 650); }
         }
 
         function updateActivePointLabel() {
@@ -1157,8 +1290,13 @@
             if (activePoint && !isEditMode) {
                 nameLabel.innerText = activePoint.id;
                 const dispText = currentInput || "0.000";
-                tempDisplay.innerText = dispText;
-                lcdValue.innerText = dispText;
+                if (tailBase !== null) {
+                    lcdValue.innerHTML = H.tailHtml(tailBase, tailTyped);
+                    tempDisplay.innerText = tailTyped ? `末尾${tailTyped.length}桁を置換` : '数字で末尾を置換';
+                } else {
+                    tempDisplay.innerText = dispText;
+                    lcdValue.innerText = dispText;
+                }
             } else {
                 nameLabel.innerText = "---";
                 tempDisplay.innerText = "---";
@@ -1208,7 +1346,7 @@
             document.getElementById('history-view').classList.toggle('hidden', !isHistoryMode);
             document.getElementById('input-view').classList.toggle('hidden', isHistoryMode);
             document.getElementById('keypad-panel').classList.toggle('hidden', isHistoryMode);
-            document.getElementById('table-controls').classList.toggle('hidden', isHistoryMode);
+            document.getElementById('table-controls').classList.add('hidden');
             document.getElementById('edit-mode-btn').classList.toggle('hidden', isHistoryMode);
             const btn = document.getElementById('history-btn');
             btn.innerHTML = isHistoryMode ? '⌨️ 入力' : '📊 履歴';
@@ -1680,6 +1818,7 @@
             const a = document.createElement('a');
             a.href = url;
             a.download = `osr_backup_${new Date().toISOString().slice(0,10)}.json`;
+            localStorage.setItem('survey_last_backup', new Date().toISOString().slice(0, 10));
             a.click();
             URL.revokeObjectURL(url);
         }

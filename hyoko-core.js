@@ -13,6 +13,7 @@
 
     const ROUND_COUNT = 12;
     const UPDATE_MM = 3;          // 変位量が3mm以上 → 2級・3級基準点の更新
+    const ALERT_MM = 10;          // 前回との差がこれ以上なら入力確認（打ち間違い防止）
     const DATA_REVISION = 3;      // 3 = 履歴（第1〜12回）形式
 
     // OSR 現場の計測履歴（Excel「OSR水準点計測 0826～最新」）
@@ -234,13 +235,38 @@
         return { no: m[1], name: m[2], kind: m[3] };
     }
 
+    /**
+     * 末尾の桁の置き換え入力（前回値コピー後の速打ち）
+     *   base="+7.899", typed="8"  → "+7.898"（末尾1桁を置換）
+     *   base="+7.899", typed="12" → "+7.812"（末尾2桁を置換）
+     * 小数点・符号はそのまま。戻り値 { text, positions }（置換した文字位置）
+     */
+    function applyTail(base, typed) {
+        const chars = String(base).split('');
+        const digitPos = [];
+        chars.forEach((ch, i) => { if (/[0-9]/.test(ch)) digitPos.push(i); });
+        const t = String(typed).slice(-digitPos.length);
+        const positions = [];
+        for (let k = 0; k < t.length; k++) {
+            const pos = digitPos[digitPos.length - t.length + k];
+            chars[pos] = t[k];
+            positions.push(pos);
+        }
+        return { text: chars.join(''), positions: positions };
+    }
+    // LCD 表示用：置換した桁に下線を付けた HTML
+    function tailHtml(base, typed) {
+        const r = applyTail(base, typed);
+        return r.text.split('').map((ch, i) => r.positions.indexOf(i) >= 0 ? `<span class="tail-digit">${ch}</span>` : ch).join('');
+    }
+
     const api = {
-        ROUND_COUNT, UPDATE_MM, DATA_REVISION, OSR_HISTORY,
+        ROUND_COUNT, UPDATE_MM, ALERT_MM, DATA_REVISION, OSR_HISTORY,
         num, fmtVal, round0, emptyRounds, emptyHist,
         getVal, setVal, prevVal, latestBefore, calc,
         allPoints, lastMeasuredRound, roundHasData, asOfDate,
         projectFromTemplate, applyOsrHistory, isOsrProject, migrateProject,
-        toCSV, splitId
+        toCSV, splitId, applyTail, tailHtml
     };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.HyokoCore = api;
