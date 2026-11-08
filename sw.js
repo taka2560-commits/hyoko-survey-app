@@ -1,7 +1,8 @@
-const CACHE_NAME = 'osr-elevation-cache-v5';
+const CACHE_NAME = 'osr-elevation-cache-v6';
 const urlsToCache = [
   './',
   './index.html',
+  './hyoko-core.js',
   './manifest.json',
   './icon.png',
   './henjo.html',

@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- PDFをクライアントサイドで直接生成するための信頼性の高いライブラリを導入 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="hyoko-core.js"></script>
 
     <!-- ==================== ホーム画面追加用 メタ設定 (PWA対応) ==================== -->
     <link rel="manifest" href="manifest.json">
@@ -179,6 +180,36 @@
             font-weight: bold;
         }
 
+        /* ==================== A3横 履歴表 ==================== */
+        .a3-sheet {
+            width: 420mm; height: 297mm; padding: 7mm 8mm; margin: 0 auto;
+            background: #fff; color: #000; box-sizing: border-box; overflow: hidden; position: relative;
+            box-shadow: 0 0 10px rgba(0,0,0,.3);
+            font-family: "BIZ UDPGothic", "Hiragino Kaku Gothic ProN", Meiryo, Arial, sans-serif;
+        }
+        table.hist { border-collapse: collapse; table-layout: fixed; width: 100%; }
+        table.hist td, table.hist th {
+            border: 0.5px solid #7f7f7f; font-size: 6.2pt; line-height: 1.05; height: 4.6mm;
+            padding: 0 0.8mm; text-align: center; white-space: nowrap; overflow: hidden;
+        }
+        table.hist th { font-weight: 700; background: #f2f2f2; }
+        table.hist td.nr { text-align: right; }
+        table.hist .cur { outline: 1.2px solid #1d4ed8; outline-offset: -1px; }
+        table.hist .upd { background: #ffff00 !important; font-weight: 700; }
+        table.hist .grp { font-weight: 700; line-height: 1.15; }
+        table.hist .rb { border-right: 1.2px solid #000; }
+        table.hist .gt { border-top: 1.2px solid #000; }
+        /* 画面の履歴表示 */
+        .hist-screen td, .hist-screen th { border: 1px solid #94a3b8; padding: 2px 4px; white-space: nowrap; font-size: 11px; }
+        .hist-screen th { background: #e2e8f0; position: sticky; top: 0; z-index: 2; }
+        html.dark .hist-screen td, html.dark .hist-screen th { border-color: #334155; }
+        html.dark .hist-screen th { background: #1e293b; }
+        .hist-screen .sticky-col { position: sticky; left: 0; z-index: 1; background: inherit; }
+        .hist-screen th.sticky-col { z-index: 3; }
+        .hist-screen .upd { background: #fde047 !important; color: #000 !important; font-weight: 900; }
+        .hist-screen .curcol { background: #dbeafe; }
+        html.dark .hist-screen .curcol { background: #172554; }
+
         /* 印刷時のCSS制御 - A4横（Landscape）対応 */
         @media print {
             @page {
@@ -212,6 +243,9 @@
             .no-print {
                 display: none !important;
             }
+            .a3-sheet { box-shadow: none !important; margin: 0 !important; }
+            #print-a3-wrap { overflow: visible !important; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
     </style>
 </head>
@@ -266,15 +300,17 @@
                         🌙 ダーク
                     </button>
 
-                    <div class="text-right flex items-center gap-1 bg-white dark:bg-slate-950 px-1 py-0.5 rounded border border-slate-300 dark:border-slate-800">
-                        <input type="date" id="measure-date" onchange="updateMeasureDate(this.value)" class="bg-transparent text-slate-950 dark:text-slate-200 font-black text-[10px] md:text-xs focus:outline-none py-0.5 w-[90px] md:w-[120px]">
-                    </div>
-
-                    <button onclick="confirmMonthlyReset()" class="bg-amber-500 dark:bg-amber-600 hover:bg-amber-600 dark:hover:bg-amber-700 text-slate-950 dark:text-white font-black text-[10px] md:text-xs py-1.5 px-2 rounded border-2 border-slate-950 dark:border-amber-700 shadow active:scale-95 transition-all">
-                        月次更新
-                    </button>
                 </div>
             </div>
+        </div>
+
+        <!-- 計測回（第1回〜第12回）の選択・計測日・次の回へ -->
+        <div class="flex items-center gap-1 mb-1.5 shrink-0 bg-slate-50 dark:bg-slate-900 border-2 border-slate-950 dark:border-slate-800 rounded-xl p-1">
+            <button onclick="moveRound(-1)" class="bg-slate-200 dark:bg-slate-800 border-2 border-slate-950 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-black active:scale-95">◀</button>
+            <select id="round-select" onchange="setRound(this.value)" class="flex-1 min-w-0 bg-white dark:bg-slate-950 border-2 border-slate-950 dark:border-slate-700 rounded px-1 py-1 text-[11px] md:text-xs font-black text-slate-950 dark:text-yellow-400"></select>
+            <button onclick="moveRound(1)" class="bg-slate-200 dark:bg-slate-800 border-2 border-slate-950 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-black active:scale-95">▶</button>
+            <input type="date" id="round-date" onchange="updateMeasureDate(this.value)" title="この回の計測日" class="bg-yellow-200 text-black border-2 border-slate-950 rounded px-1 py-0.5 text-[10px] md:text-xs font-black w-[104px] md:w-[130px]">
+            <button onclick="confirmMonthlyReset()" class="bg-amber-500 dark:bg-amber-600 text-slate-950 dark:text-white font-black text-[10px] md:text-xs py-1 px-1.5 rounded border-2 border-slate-950 dark:border-amber-700 shadow active:scale-95 leading-tight">次の回へ</button>
         </div>
 
         <!-- タブ切り替え & 整理モード (縮まないように固定) -->
@@ -282,6 +318,7 @@
             <div id="tab-buttons-container" class="flex gap-1 flex-grow">
                 <!-- JSで動的生成 -->
             </div>
+            <button id="history-btn" onclick="toggleHistory()" class="bg-slate-200 dark:bg-slate-800 border-2 border-slate-950 dark:border-slate-700 text-slate-950 dark:text-slate-200 px-2 py-2 rounded-lg text-[10px] md:text-xs font-black shrink-0 active:scale-95 transition-all">📊 履歴</button>
             <button id="edit-mode-btn" onclick="toggleEditMode()" class="bg-slate-200 dark:bg-slate-800 border-2 border-slate-950 dark:border-slate-700 text-slate-950 dark:text-slate-200 px-2.5 py-2 rounded-lg text-[10px] md:text-xs font-black shrink-0 flex items-center gap-1 active:scale-95 transition-all">
                 ✏️ <span id="edit-mode-label">追加・削除</span>
             </button>
@@ -289,15 +326,16 @@
 
         <!-- テーブル一覧エリア (ここが自動で伸縮し、かつ内部のみ縦スクロール可能) -->
         <div class="flex-1 overflow-y-auto bg-white dark:bg-slate-950 border-2 border-slate-950 dark:border-slate-800 rounded-xl mb-1.5 shadow flex flex-col min-h-0">
-            <div class="flex-grow overflow-y-auto w-full">
+            <div id="history-view" class="hidden flex-grow overflow-auto w-full"></div>
+            <div id="input-view" class="flex-grow overflow-y-auto w-full">
                 <table class="survey-table w-full text-left border-collapse table-fixed">
                     <thead class="bg-slate-100 dark:bg-slate-900 sticky top-0 text-slate-950 dark:text-slate-300 text-xs z-10 font-black border-b border-slate-300 dark:border-slate-800">
                         <tr>
                             <th id="th-select" class="py-2.5 px-1 text-center w-[12%] transition-all duration-300 hidden bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400">削除</th>
                             <th class="py-2.5 px-2 text-left w-[22%] text-[11px]">点名</th>
                             <th class="py-2.5 px-1 text-right w-[17%] text-[11px]">初期値</th>
-                            <th class="py-2.5 px-1 text-right w-[17%] text-[11px]">前月</th>
-                            <th class="py-2.5 px-1 text-right w-[17%] text-[11px]">当月</th>
+                            <th id="th-prev" class="py-2.5 px-1 text-right w-[17%] text-[11px] leading-tight">前回</th>
+                            <th id="th-curr" class="py-2.5 px-1 text-right w-[17%] text-[11px] leading-tight">今回</th>
                             <th id="th-remarks" class="py-2.5 px-2 text-left w-[17%] text-[11px]">備考</th>
                         </tr>
                     </thead>
@@ -347,7 +385,7 @@
                 <button class="key-btn rounded-lg text-xs md:text-sm bg-slate-300 dark:bg-slate-750" onclick="press('+/-')">+/-</button>
 
                 <button class="key-btn key-copy rounded-lg text-[9px] md:text-[10px] font-black leading-tight flex flex-col justify-center items-center" onclick="press('COPY')">
-                    <span>前月値</span><span>コピー</span>
+                    <span>前回値</span><span>コピー</span>
                 </button>
                 <button class="key-btn rounded-lg text-lg md:text-xl" onclick="press('0')">0</button>
                 <button class="key-btn rounded-lg text-lg md:text-xl" onclick="press('.')">.</button>
@@ -359,8 +397,14 @@
     <!-- ==================== A4サイズ 印刷プレビュー画面 ==================== -->
     <div id="print-preview-container" class="hidden fixed inset-0 z-50 bg-slate-800 overflow-y-auto p-4 no-print">
         <!-- プレビュー用トップバー -->
-        <div class="max-w-[297mm] mx-auto bg-slate-900 text-white p-3 rounded-t-xl border-x-2 border-t-2 border-slate-950 flex justify-between items-center shadow-lg">
-            <span class="text-xs font-black text-yellow-400">📄 PDF印刷プレビュー (A4横サイズ)</span>
+        <div class="no-print max-w-[420mm] mx-auto bg-slate-900 text-white p-3 rounded-t-xl border-x-2 border-t-2 border-slate-950 flex flex-wrap gap-2 justify-between items-center shadow-lg sticky top-0 z-10">
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-black text-yellow-400">📄 PDF印刷プレビュー</span>
+                <select id="print-format" onchange="renderPrintPreview()" class="text-black text-xs font-black rounded px-1 py-1">
+                    <option value="a3">A3横 履歴（第1〜12回）</option>
+                    <option value="a4">A4横 今回のみ</option>
+                </select>
+            </div>
             <div class="flex gap-2">
                 <!-- 直接PDFをバックグラウンド生成してダウンロードするボタン -->
                 <button id="pdf-download-btn" onclick="downloadPDF(event)" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs py-1.5 px-3 rounded border border-emerald-700 flex items-center gap-1 active:scale-95 transition-all">
@@ -376,8 +420,13 @@
             </div>
         </div>
 
+        <!-- A3横 履歴表（Excel「OSR水準点計測」と同じ様式） -->
+        <div id="print-a3-wrap" class="overflow-x-auto">
+            <div id="print-a3" class="a3-sheet"></div>
+        </div>
+
         <!-- A4横シミュレータ用紙 -->
-        <div class="print-page shadow-2xl relative">
+        <div id="print-a4" class="print-page shadow-2xl relative">
             <!-- 帳票ヘッダー -->
             <div class="text-center mb-4 pb-2 border-b-2 border-double border-slate-950">
                 <h2 id="print-doc-title" class="text-base font-black tracking-wide text-slate-950">OSRプロジェクト新築工事 施工用基準レベル標高値(OP)管理表</h2>
@@ -592,17 +641,19 @@
             }
         ];
 
+        const H = window.HyokoCore;
+
+        // 初回起動時の既定現場：OSR（1〜3級基準点）＋ Excel の計測履歴（第1〜3回）
+        function createDefaultProject() {
+            const p = H.projectFromTemplate("p_1", "OSRプロジェクト新築工事", templateNew);
+            H.applyOsrHistory(p);
+            p.currentRound = H.OSR_HISTORY.dates.length + 1;
+            return p;
+        }
         let appState = {
-            projects: [
-                {
-                    id: "p_1",
-                    name: "OSRプロジェクト新築工事",
-                    measureDate: new Date().toISOString().substring(0, 10),
-                    tabs: JSON.parse(JSON.stringify(templateNew))
-                }
-            ],
+            projects: [createDefaultProject()],
             currentProjectId: "p_1",
-            dataRevision: 2
+            dataRevision: H.DATA_REVISION
         };
 
         // ローカルストレージデータの復元
@@ -618,30 +669,34 @@
         // ==================== データ改訂（保存済みデータへの反映） ====================
         // 改訂2: 2026/08/26 第3回計測の Excel に合わせ、1〜3級基準点の現場の測点・初期値・前回値を更新
         //   ⑩ アングル再設置(3.000)、⑬ 山留(亡失)→構台杭、⑭〜⑯ 構台杭の値更新、⑰〜⑲ 削除
-        //   改訂前のデータは survey_app_state_v9_backup_r1 に退避
-        const DATA_REVISION = 2;
+        // 改訂3: 初期値・前月・当月 → 初期値＋第1回〜第12回の履歴形式へ（OSR現場は Excel の第1〜3回を反映）
+        //   改訂前のデータは survey_app_state_v9_backup_r1 / _r2 に退避
         const REVISION_BASE_DATE = "2026-08-26";
         function migrateData() {
-            if ((appState.dataRevision || 1) >= DATA_REVISION) return;
-            try { if (!localStorage.getItem('survey_app_state_v9_backup_r1')) localStorage.setItem('survey_app_state_v9_backup_r1', JSON.stringify(appState)); } catch (e) {}
-            const today = new Date().toISOString().substring(0, 10);
-            (appState.projects || []).forEach(p => {
-                const names = (p.tabs || []).map(t => t.tabName).join('|');
-                if (names !== '1級基準点|2級基準点|3級基準点') return; // 1〜3級テンプレートの現場のみ
-                // 8/26 より後の日付で入力中の当月値だけを引き継ぐ（8/26以前の値は Excel の前回値に反映済み）
-                const keepCurr = p.measureDate && p.measureDate > REVISION_BASE_DATE;
-                const oldCurr = {};
-                p.tabs.forEach(t => t.data.forEach(d => { if (d.curr) oldCurr[d.id] = d.curr; }));
-                p.tabs = JSON.parse(JSON.stringify(templateNew));
-                if (keepCurr) {
-                    p.tabs.forEach(t => t.data.forEach(d => {
-                        if (oldCurr[d.id] && !d.id.startsWith('⑩')) d.curr = oldCurr[d.id]; // ⑩は再設置のため引き継がない
-                    }));
-                } else {
-                    p.measureDate = today;
-                }
-            });
-            appState.dataRevision = DATA_REVISION;
+            const rev = appState.dataRevision || 1;
+            if (rev >= H.DATA_REVISION) return;
+            const backupKey = 'survey_app_state_v9_backup_r' + rev;
+            try { if (!localStorage.getItem(backupKey)) localStorage.setItem(backupKey, JSON.stringify(appState)); } catch (e) {}
+            if (rev < 2) {
+                const today = new Date().toISOString().substring(0, 10);
+                (appState.projects || []).forEach(p => {
+                    if (!H.isOsrProject(p) || p.rounds) return; // 1〜3級テンプレートの現場のみ
+                    // 8/26 より後の日付で入力中の当月値だけを引き継ぐ（8/26以前の値は Excel に反映済み）
+                    const keepCurr = p.measureDate && p.measureDate > REVISION_BASE_DATE;
+                    const oldCurr = {};
+                    p.tabs.forEach(t => t.data.forEach(d => { if (d.curr) oldCurr[d.id] = d.curr; }));
+                    p.tabs = JSON.parse(JSON.stringify(templateNew));
+                    if (keepCurr) {
+                        p.tabs.forEach(t => t.data.forEach(d => {
+                            if (oldCurr[d.id] && !d.id.startsWith('⑩')) d.curr = oldCurr[d.id]; // ⑩は再設置のため引き継がない
+                        }));
+                    } else {
+                        p.measureDate = today;
+                    }
+                });
+            }
+            (appState.projects || []).forEach(p => H.migrateProject(p));
+            appState.dataRevision = H.DATA_REVISION;
             localStorage.setItem('survey_app_state_v9', JSON.stringify(appState));
         }
         migrateData();
@@ -650,6 +705,7 @@
         let currentIndex = 0;
         let currentInput = "";
         let isEditMode = false;
+        let isHistoryMode = false;
         let isDarkMode = localStorage.getItem('survey_dark_mode') === 'true';
 
         window.onload = function() {
@@ -686,17 +742,54 @@
             localStorage.setItem('survey_app_state_v9', JSON.stringify(appState));
         }
 
+        // ---------- 計測回（第1〜12回）----------
+        function curRound() { return getCurrentProject().currentRound || 1; }
+        function getCurr(p) { return H.getVal(p, curRound()); }
+        function getPrev(p) { return H.prevVal(p, curRound()); }
+        function setCurr(p, v) {
+            H.setVal(p, curRound(), v);
+            // 計測日が未入力なら今日の日付を入れる
+            const rd = getCurrentProject().rounds[curRound() - 1];
+            if (v && !rd.date) { rd.date = new Date().toISOString().substring(0, 10); renderRoundBar(); }
+        }
+        function fmtSlash(d) { return d ? d.replace(/-/g, '/') : ''; }
+        function fmtJP(d) { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ''); return m ? `${+m[1]}年${+m[2]}月${+m[3]}日` : ''; }
+
+        function renderRoundBar() {
+            const proj = getCurrentProject();
+            if (!proj) return;
+            const r = curRound();
+            let html = '';
+            for (let k = 1; k <= H.ROUND_COUNT; k++) {
+                const d = proj.rounds[k - 1].date;
+                const has = H.roundHasData(proj, k);
+                html += `<option value="${k}" ${k === r ? 'selected' : ''}>第${k}回　${d ? fmtSlash(d) : ''}${has ? '' : '（未計測）'}</option>`;
+            }
+            document.getElementById('round-select').innerHTML = html;
+            document.getElementById('round-date').value = proj.rounds[r - 1].date || '';
+            document.getElementById('th-prev').innerHTML = r === 1 ? '前回<br><span class="text-[9px]">(初期値)</span>' : `前回<br><span class="text-[9px]">(第${r - 1}回)</span>`;
+            document.getElementById('th-curr').innerHTML = `今回<br><span class="text-[9px]">(第${r}回)</span>`;
+        }
+        function setRound(v) {
+            const proj = getCurrentProject();
+            proj.currentRound = Math.max(1, Math.min(H.ROUND_COUNT, parseInt(v, 10) || 1));
+            currentIndex = 0;
+            currentInput = proj.tabs[currentTab]?.data[0] ? getCurr(proj.tabs[currentTab].data[0]) : "";
+            saveState();
+            renderRoundBar();
+            renderTable();
+            if (isHistoryMode) renderHistory();
+            updateActivePointLabel();
+        }
+        function moveRound(d) { setRound(curRound() + d); }
+
         // セレクターの同期
         function syncSelectors() {
             const selector = document.getElementById('project-selector');
             selector.innerHTML = appState.projects.map(p => `
                 <option value="${p.id}" ${p.id === appState.currentProjectId ? 'selected' : ''}>${p.name}</option>
             `).join('');
-
-            const currentProj = getCurrentProject();
-            if (currentProj) {
-                document.getElementById('measure-date').value = currentProj.measureDate || new Date().toISOString().substring(0,10);
-            }
+            renderRoundBar();
         }
 
         function getCurrentProject() {
@@ -707,18 +800,24 @@
             appState.currentProjectId = id;
             currentIndex = 0;
             currentInput = "";
+            currentTab = 0;
             saveState();
             syncSelectors();
+            updateTabUI();
             renderTable();
+            if (isHistoryMode) renderHistory();
             updateActivePointLabel();
             scrollToActiveRow();
         }
 
+        // この回の計測日
         function updateMeasureDate(val) {
             const currentProj = getCurrentProject();
             if (currentProj) {
-                currentProj.measureDate = val;
+                currentProj.rounds[curRound() - 1].date = val || '';
                 saveState();
+                renderRoundBar();
+                if (isHistoryMode) renderHistory();
             }
         }
 
@@ -743,9 +842,11 @@
             currentTab = idx;
             currentIndex = 0;
             const currentProj = getCurrentProject();
-            currentInput = currentProj.tabs[currentTab].data[currentIndex]?.curr || "";
+            const first = currentProj.tabs[currentTab].data[currentIndex];
+            currentInput = first ? getCurr(first) : "";
             
             updateTabUI();
+            if (isHistoryMode) renderHistory();
             
             renderTable();
             updateActivePointLabel();
@@ -807,18 +908,19 @@
                         </td>
                         <!-- 前月値 -->
                         <td class="py-3 px-1 text-right font-mono text-slate-500 dark:text-slate-400 text-xs align-middle">
-                            ${isEditMode ? `
-                                <input type="text" value="${p.prev || ""}" 
+                            ${(isEditMode && curRound() > 1) ? `
+                                <input type="text" value="${getPrev(p)}" 
                                        class="bg-white dark:bg-slate-900 border border-slate-950 dark:border-slate-700 rounded px-1 py-0.5 text-xs font-mono text-right w-full focus:outline-none"
                                        onchange="updatePointPrev(${i}, this.value)"
                                        onclick="event.stopPropagation();">
                             ` : `
-                                ${p.prev || "---"}
+                                ${getPrev(p) || "---"}
                             `}
                         </td>
                         <!-- 当月値 -->
                         <td class="py-3 px-1 text-right font-mono text-sm font-black text-slate-950 dark:text-slate-100 align-middle">
-                            ${p.curr || ((!isEditMode && isSelected) ? '<span class="text-slate-450 dark:text-slate-600 animate-pulse">0.000</span>' : '---')}
+                            ${getCurr(p) || ((!isEditMode && isSelected) ? '<span class="text-slate-450 dark:text-slate-600 animate-pulse">0.000</span>' : '---')}
+                            ${diffBadge(p)}
                         </td>
                         <!-- 備考 -->
                         <td class="py-3 px-2 text-left font-bold text-xs align-middle">
@@ -833,11 +935,20 @@
             }).join('');
         }
 
+        // 今回の値の下に 初期値との差 / 前回との差（mm）を表示。3mm以上は黄色（基準点の更新対象）
+        function diffBadge(p) {
+            const c = H.calc(p, curRound());
+            if (c.value === null) return '';
+            const fm = v => v === null ? '' : (v > 0 ? '+' : '') + v;
+            return `<div class="text-[9px] font-bold leading-tight mt-0.5"><span class="${c.update ? 'bg-yellow-300 text-black px-0.5 rounded' : 'text-slate-500 dark:text-slate-400'}">初${fm(c.dInit)}${c.dir !== '-' ? c.dir : ''}</span> <span class="text-slate-500 dark:text-slate-400">前${fm(c.dPrev)}</span></div>`;
+        }
+
         function selectRow(idx, event) {
             if (isEditMode) return; 
             currentIndex = idx;
             const project = getCurrentProject();
-            currentInput = project.tabs[currentTab].data[currentIndex]?.curr || "";
+            const pt = project.tabs[currentTab].data[currentIndex];
+            currentInput = pt ? getCurr(pt) : "";
             renderTable();
             updateActivePointLabel();
         }
@@ -887,7 +998,7 @@
         function updatePointPrev(idx, newVal) {
             const project = getCurrentProject();
             if (project) {
-                project.tabs[currentTab].data[idx].prev = newVal;
+                if (curRound() > 1) H.setVal(project.tabs[currentTab].data[idx], curRound() - 1, newVal.trim());
                 saveState();
             }
         }
@@ -914,7 +1025,7 @@
                 newId = `${prefix}${nextNum}`;
             }
 
-            currentItems.push({ id: newId, init: "", prev: "", curr: "", remarks: "", type: currentTab === 0 ? "水準点" : "シール" });
+            currentItems.push({ id: newId, init: "", remarks: "", type: currentTab === 0 ? "水準点" : "シール", hist: H.emptyHist() });
             saveState();
             
             currentIndex = currentItems.length - 1;
@@ -946,7 +1057,8 @@
                     if (currentIndex >= project.tabs[currentTab].data.length) {
                         currentIndex = Math.max(0, project.tabs[currentTab].data.length - 1);
                     }
-                    currentInput = project.tabs[currentTab].data[currentIndex]?.curr || "";
+                    const pt = project.tabs[currentTab].data[currentIndex];
+                    currentInput = pt ? getCurr(pt) : "";
                     
                     saveState();
                     closeModal();
@@ -983,10 +1095,12 @@
                     currentInput += '.';
                 }
             } else if (key === 'COPY') {
-                if (activePoint.prev && activePoint.prev !== "---") {
-                    currentInput = activePoint.prev;
+                // 前回値（前回が空欄なら直近の計測値、なければ初期値）
+                const src = H.latestBefore(activePoint, curRound());
+                if (src) {
+                    currentInput = src;
                 } else {
-                    showModal("前月値なし", "コピー元の前月データが存在しません。", closeModal, true);
+                    showModal("前回値なし", "コピー元の前回データが存在しません。", closeModal, true);
                     return;
                 }
             } else if (key === 'ENTER') {
@@ -999,7 +1113,7 @@
                 currentInput += key;
             }
 
-            activePoint.curr = currentInput;
+            setCurr(activePoint, currentInput);
             saveState();
             renderTable();
             updateActivePointLabel();
@@ -1012,14 +1126,14 @@
                 const numericValue = parseFloat(currentInput);
                 if (!isNaN(numericValue)) {
                     const prefix = numericValue >= 0 ? "+" : "";
-                    activePoint.curr = prefix + numericValue.toFixed(3);
+                    setCurr(activePoint, prefix + numericValue.toFixed(3));
                 }
             }
             saveState();
 
             if (currentIndex < project.tabs[currentTab].data.length - 1) {
                 currentIndex++;
-                currentInput = project.tabs[currentTab].data[currentIndex]?.curr || "";
+                currentInput = getCurr(project.tabs[currentTab].data[currentIndex]);
                 renderTable();
                 updateActivePointLabel();
                 scrollToActiveRow();
@@ -1059,47 +1173,212 @@
             }
         }
 
+        // 次の回へ（旧「月次更新」）：値は各回に残したまま、入力先を次の回にする
         function confirmMonthlyReset() {
+            const project = getCurrentProject();
+            const r = curRound();
+            if (r >= H.ROUND_COUNT) {
+                showModal("最終回です", `第${H.ROUND_COUNT}回が最後の回です。`, closeModal, true);
+                return;
+            }
             showModal(
-                "📅 月次データの移行",
-                "当月の値を前月に移行し、新規計測の入力をリセット（クリア）します。初期値(計画値)はそのまま残ります。更新しますか？",
+                "📅 次の回へ",
+                `第${r}回の入力を終えて、第${r + 1}回の入力に進みます。これまでの計測値は履歴に残ります。第${r + 1}回の計測日は今日の日付になります（変更可）。進みますか？`,
                 () => {
-                    const project = getCurrentProject();
-                    if (project) {
-                        project.tabs.forEach(tab => {
-                            tab.data.forEach(p => {
-                                if (p.curr) p.prev = p.curr;
-                                p.curr = "";
-                            });
-                        });
-                        project.measureDate = new Date().toISOString().substring(0, 10);
-                        currentIndex = 0;
-                        currentInput = "";
-                        saveState();
-                        syncSelectors();
-                        renderTable();
-                        updateActivePointLabel();
-                        closeModal();
-                    }
+                    project.currentRound = r + 1;
+                    const rd = project.rounds[r];
+                    if (!rd.date) rd.date = new Date().toISOString().substring(0, 10);
+                    currentIndex = 0;
+                    const first = project.tabs[currentTab].data[0];
+                    currentInput = first ? getCurr(first) : "";
+                    saveState();
+                    syncSelectors();
+                    renderTable();
+                    if (isHistoryMode) renderHistory();
+                    updateActivePointLabel();
+                    closeModal();
                 }
             );
         }
 
-        /* ==================== A4 印刷プレビューおよびPDF直接生成機能の実装 ==================== */
-        function openPrintPreview() {
-            const project = getCurrentProject();
-            if (!project) return;
+        // ==================== 📊 履歴表示（第1〜12回） ====================
+        function toggleHistory() {
+            if (isEditMode) toggleEditMode();
+            isHistoryMode = !isHistoryMode;
+            document.getElementById('history-view').classList.toggle('hidden', !isHistoryMode);
+            document.getElementById('input-view').classList.toggle('hidden', isHistoryMode);
+            document.getElementById('keypad-panel').classList.toggle('hidden', isHistoryMode);
+            document.getElementById('table-controls').classList.toggle('hidden', isHistoryMode);
+            document.getElementById('edit-mode-btn').classList.toggle('hidden', isHistoryMode);
+            const btn = document.getElementById('history-btn');
+            btn.innerHTML = isHistoryMode ? '⌨️ 入力' : '📊 履歴';
+            btn.classList.toggle('bg-blue-700', isHistoryMode);
+            btn.classList.toggle('text-white', isHistoryMode);
+            if (isHistoryMode) renderHistory();
+            else { renderTable(); updateActivePointLabel(); }
+        }
 
+        function renderHistory() {
+            const proj = getCurrentProject();
+            const tab = proj.tabs[currentTab];
+            const cur = curRound();
+            const last = Math.max(cur, H.lastMeasuredRound(proj));
+            const fm = v => v === null ? '' : String(v);
+            let h = `<table class="hist-screen border-collapse text-slate-950 dark:text-slate-100">
+                <thead><tr>
+                    <th rowspan="2" class="sticky-col text-left">点名</th>
+                    <th rowspan="2">初期値<br><span class="text-[9px] font-normal">${fmtSlash(proj.initDate)}</span></th>`;
+            for (let r = 1; r <= last; r++) {
+                h += `<th colspan="4" onclick="setRound(${r})" class="cursor-pointer ${r === cur ? 'curcol' : ''}">第${r}回${r === cur ? ' ✏️' : ''}<br><span class="text-[9px] font-normal">${fmtSlash(proj.rounds[r - 1].date) || '日付なし'}</span></th>`;
+            }
+            h += `</tr><tr>`;
+            for (let r = 1; r <= last; r++) h += `<th class="${r === cur ? 'curcol' : ''}">計測値</th><th class="${r === cur ? 'curcol' : ''}">初期差</th><th class="${r === cur ? 'curcol' : ''}">前回差</th><th class="${r === cur ? 'curcol' : ''}">方向</th>`;
+            h += `</tr></thead><tbody>`;
+            tab.data.forEach((p, i) => {
+                const bg = i % 2 === 0 ? 'bg-slate-50 dark:bg-slate-900' : 'bg-white dark:bg-slate-950';
+                h += `<tr class="${bg}"><td class="sticky-col font-black font-mono">${p.id}</td><td class="text-right font-mono">${p.init || ''}</td>`;
+                for (let r = 1; r <= last; r++) {
+                    const c = H.calc(p, r);
+                    const cc = r === cur ? 'curcol' : '';
+                    h += `<td class="text-right font-mono font-bold ${cc}">${H.getVal(p, r)}</td>
+                        <td class="text-right font-mono ${c.update ? 'upd' : cc}">${fm(c.dInit)}</td>
+                        <td class="text-right font-mono ${cc}">${fm(c.dPrev)}</td>
+                        <td class="text-center ${cc}">${c.value === null ? '' : c.dir}</td>`;
+                }
+                h += `</tr>`;
+            });
+            h += `<tr><td class="sticky-col font-black bg-slate-100 dark:bg-slate-900">備考（工程）</td><td class="text-[10px]">${proj.initRemarks || ''}</td>`;
+            for (let r = 1; r <= last; r++) {
+                h += `<td colspan="4" class="${r === cur ? 'curcol' : ''}"><input type="text" value="${(proj.rounds[r - 1].remarks || '').replace(/"/g, '&quot;')}" onchange="setRoundRemarks(${r}, this.value)" placeholder="工程・亡失など" class="w-full bg-transparent text-blue-700 dark:text-sky-300 text-[11px] focus:outline-none"></td>`;
+            }
+            h += `</tr></tbody></table>
+            <p class="text-[10px] font-bold text-slate-500 p-1.5">単位：差は mm。初期差が ${H.UPDATE_MM}mm 以上は黄色（基準点の更新対象）。回の見出しをタップするとその回の入力に切り替わります（✏️＝入力中の回）。</p>`;
+            const view = document.getElementById('history-view');
+            view.innerHTML = h;
+            // 入力中の回（直近の回）が見えるよう横スクロール
+            const th = view.querySelector('thead th.curcol');
+            const stick = view.querySelector('thead th.sticky-col');
+            if (th && stick) view.scrollLeft = Math.max(0, th.offsetLeft - stick.offsetWidth - view.querySelector('thead th:nth-child(2)').offsetWidth);
+        }
+        function setRoundRemarks(r, v) {
+            getCurrentProject().rounds[r - 1].remarks = v;
+            saveState();
+        }
+
+        /* ==================== 印刷プレビュー（A3横 履歴 / A4横 今回のみ）およびPDF生成 ==================== */
+        function openPrintPreview() {
+            if (!getCurrentProject()) return;
+            renderPrintPreview();
+            document.getElementById('print-preview-container').classList.remove('hidden');
+        }
+
+        function printFormat() { return document.getElementById('print-format').value; }
+
+        function renderPrintPreview() {
+            const project = getCurrentProject();
+            const a3 = printFormat() === 'a3';
+            document.getElementById('print-a3-wrap').classList.toggle('hidden', !a3);
+            document.getElementById('print-a4').classList.toggle('hidden', a3);
+            document.getElementById('page-size-style').textContent = `@media print { @page { size: ${a3 ? 'A3' : 'A4'} landscape; margin: 0; } }`;
+            if (a3) document.getElementById('print-a3').innerHTML = buildA3(project);
+            else buildA4(project);
+        }
+
+        // A3横：Excel「OSR水準点計測」と同じ 初期値＋第1〜12回 の履歴表
+        function buildA3(project) {
+            const N = H.ROUND_COUNT;
+            const asof = H.asOfDate(project);
+            const cur = curRound();
+            const fills = ['#FCE4D6', '#DDEBF7', '#F6DDF0', '#E2EFDA', '#FFF2CC'];
+            const fm = v => v === null ? '' : String(v);
+            // 列幅（区分・番号・測点名・種別・初期値3列・各回4列）
+            const fixed = [4.5, 4.5, 10, 5, 8.5, 4.2, 4.2], per = [8, 4.2, 4.2, 3.4];
+            const total = fixed.reduce((a, b) => a + b, 0) + N * per.reduce((a, b) => a + b, 0);
+            let cols = fixed.map(w => `<col style="width:${(w / total * 100).toFixed(3)}%">`).join('');
+            for (let r = 0; r < N; r++) cols += per.map(w => `<col style="width:${(w / total * 100).toFixed(3)}%">`).join('');
+
+            let h = `<div style="display:flex;align-items:baseline;gap:8mm;margin-bottom:1.5mm;">
+                    <div style="font-size:12.5pt;font-weight:700;">${project.name}における施工用基準レベル　変状計測</div>
+                    <div style="font-size:8.5pt;font-weight:700;">${asof ? fmtJP(asof) + '時点' : ''}</div>
+                    <div style="margin-left:auto;font-size:7pt;">単位：mm</div>
+                </div>
+                <table class="hist"><colgroup>${cols}</colgroup>
+                <tr><th colspan="4" rowspan="2" class="rb">単位：mm(OP,B1FL)</th><th colspan="3" class="rb">初期値</th>`;
+            for (let r = 1; r <= N; r++) h += `<th colspan="4" class="rb ${r === cur ? 'cur' : ''}">第${r}回</th>`;
+            h += `</tr><tr><th colspan="3" class="rb">${fmtJP(project.initDate)}</th>`;
+            for (let r = 1; r <= N; r++) h += `<th colspan="4" class="rb">${fmtJP(project.rounds[r - 1].date)}</th>`;
+            h += `</tr><tr style="height:7mm"><th>区分</th><th>管理<br>番号</th><th>測点名称</th><th class="rb">種別</th><th>初期値</th><th>初期<br>差</th><th class="rb">前回<br>差</th>`;
+            for (let r = 1; r <= N; r++) h += `<th>計測値</th><th>初期<br>差</th><th>前回<br>差</th><th class="rb">変位<br>方向</th>`;
+            h += `</tr>`;
+
+            project.tabs.forEach((tab, ti) => {
+                const fill = fills[ti % fills.length];
+                const rows = tab.data.map(p => Object.assign({ p: p }, H.splitId(p.id)));
+                // 同じ測点（OP / B1FL）をまとめる
+                rows.forEach((row, i) => {
+                    const key = row.no + '|' + row.name;
+                    row.span = 0;
+                    if (i === 0 || (rows[i - 1].no + '|' + rows[i - 1].name) !== key || !row.kind) {
+                        let n = 1;
+                        while (rows[i + n] && rows[i + n].kind && row.kind && (rows[i + n].no + '|' + rows[i + n].name) === key) n++;
+                        row.span = n;
+                    }
+                });
+                rows.forEach((row, i) => {
+                    const p = row.p, gt = i === 0 ? ' gt' : '';
+                    const bg = `background:${fill};`;   // 背景はセルごとに指定（rowspan セルが隠れないように）
+                    h += `<tr>`;
+                    if (i === 0) h += `<td rowspan="${rows.length}" class="grp gt" style="background:${fill}">${tab.tabName.split('').join('<br>')}</td>`;
+                    if (row.span) h += `<td rowspan="${row.span}" class="${gt}" style="font-size:8pt;background:${fill}">${row.no}</td><td rowspan="${row.span}" class="${gt}" style="background:${fill};font-weight:700;">${row.name}</td>`;
+                    const ci = H.num(p.init) !== null;
+                    h += `<td class="rb${gt}" style="font-weight:700;${bg}">${row.kind}</td>
+                        <td class="nr${gt}" style="background:#fff;">${ci ? H.fmtVal(H.num(p.init)).replace('+', '') : ''}</td><td class="${gt}" style="${bg}">${ci ? 0 : ''}</td><td class="rb${gt}" style="${bg}">${ci ? 0 : ''}</td>`;
+                    for (let r = 1; r <= N; r++) {
+                        const c = H.calc(p, r);
+                        const v = c.value === null ? '' : H.fmtVal(c.value).replace('+', '');
+                        h += `<td class="nr${gt}" style="background:#fff;">${v}</td>
+                            <td class="${gt} ${c.update ? 'upd' : ''}" style="${bg}">${fm(c.dInit)}</td>
+                            <td class="${gt}" style="${bg}">${fm(c.dPrev)}</td>
+                            <td class="rb${gt}" style="${bg}">${c.value === null ? '' : c.dir}</td>`;
+                    }
+                    h += `</tr>`;
+                });
+            });
+            h += `<tr style="height:7mm"><td colspan="4" class="rb gt" style="font-weight:700;">備考（工程）</td><td colspan="3" class="rb gt" style="color:#00f;white-space:normal;">${project.initRemarks || ''}</td>`;
+            for (let r = 1; r <= N; r++) h += `<td colspan="4" class="rb gt" style="color:#00f;white-space:normal;">${(project.rounds[r - 1].remarks || '').replace(/</g, '&lt;')}</td>`;
+            h += `</tr></table>`;
+
+            // 注記（OSR現場は Excel の注記を記載）
+            const osr = H.isOsrProject(project);
+            h += `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-top:3mm;font-size:6.8pt;line-height:1.5;">
+                <div>${osr ? `
+                    <div style="font-weight:700;text-decoration:underline;">OSR1級基準点　4点</div>
+                    <div>◆　周辺建屋設置済みターゲットシール（SA1・SA12・SA18）、桜島第三駐車場外壁面に設置した基準レベル</div>
+                    <div>◆　1級基準点を最も信頼できる点とする。1級基準点間で相互変位測量を実施する。</div>
+                    <div style="font-weight:700;text-decoration:underline;margin-top:1mm;">OSR2級基準点　5点</div>
+                    <div>◆　場内水槽構台杭からＣ形鋼を立上げ設置した基準レベル</div>
+                    <div>◆　1級基準点からの変位計測を毎月実施する。　◆　変位量が3㎜以上の場合は2級基準点の更新を実施する。</div>
+                    <div style="font-weight:700;text-decoration:underline;margin-top:1mm;">OSR3級基準点　5点〜</div>
+                    <div>◆　構台杭・山留面等に設置した基礎施工時に使用する基準レベル</div>
+                    <div>◆　上段外周用として親杭からC型鋼を立上げ基準レベル設置、仮囲いに設置しているものは使用禁止（排除する）</div>
+                    <div>◆　1級基準点からの変位計測を毎月実施する。　◆　変位量が3㎜以上の場合は3級基準点の更新を実施する。　◆　使用可能期間を表示し、毎月更新を実施する。</div>` : ''}
+                </div>
+                <div style="display:flex;flex-direction:column;gap:2mm;align-items:flex-end;">
+                    <table class="hist" style="width:70mm;"><tr><td style="width:10mm;">Z</td><td>上下方向の変位　↑・↓</td></tr></table>
+                    <table class="hist" style="width:70mm;"><tr><th style="width:20mm;">測点</th><th>計測内容</th></tr>
+                        <tr><td style="height:12mm;">SA1〜</td><td style="white-space:normal;">沈下値を測量器にて測定する。初期値ポイントを設置し定期計測管理を実施する。</td></tr></table>
+                    <div><span style="background:#ffff00;padding:0 2mm;font-weight:700;">黄色</span>＝初期値との差が ${H.UPDATE_MM}mm 以上（基準点の更新対象）</div>
+                </div>
+            </div>`;
+            return h;
+        }
+
+        // A4横：今回（選択中の回）のみ
+        function buildA4(project) {
             // プレビュー表示データの反映
             document.getElementById('print-project-name').innerText = project.name;
-            
-            // 日付を「◯年◯月◯日」形式に整形
-            const d = new Date(project.measureDate);
-            if (!isNaN(d.getTime())) {
-                document.getElementById('print-measure-date').innerText = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
-            } else {
-                document.getElementById('print-measure-date').innerText = project.measureDate;
-            }
+            const rd = project.rounds[curRound() - 1].date;
+            document.getElementById('print-measure-date').innerText = (fmtJP(rd) || '日付未入力') + `（第${curRound()}回）`;
 
             // 変位差(mm)計算用ヘルパー（当月(curr) と 初期値(init) の比較差分を計算）
             const calcDiff = (initStr, currStr) => {
@@ -1116,9 +1395,9 @@
                 if (!dataArray) return "";
                 return dataArray.map(p => {
                     const initDisp = (p.init && p.init !== "---") ? p.init : "";
-                    const prevDisp = (p.prev && p.prev !== "---") ? p.prev : "";
-                    const currDisp = (p.curr && p.curr !== "---") ? p.curr : "";
-                    const diffDisp = calcDiff(p.init, p.curr);
+                    const prevDisp = getPrev(p);
+                    const currDisp = getCurr(p);
+                    const diffDisp = calcDiff(p.init, currDisp);
                     const diffClass = diffDisp.startsWith('-') ? 'text-red-600' : 'text-emerald-700';
                     return `
                         <tr>
@@ -1169,8 +1448,8 @@
                                 <tr>
                                     <th class="w-[23%] text-left">点名</th>
                                     <th class="w-[16%] text-right">初期</th>
-                                    <th class="w-[16%] text-right">前月</th>
-                                    <th class="w-[16%] text-right">当月</th>
+                                    <th class="w-[16%] text-right">前回</th>
+                                    <th class="w-[16%] text-right">今回</th>
                                     <th class="w-[15%] text-right">変位差</th>
                                     <th class="w-[14%] text-left">備考</th>
                                 </tr>
@@ -1183,18 +1462,17 @@
                 `;
                 container.innerHTML += columnHTML;
             });
-
-            document.getElementById('print-preview-container').classList.remove('hidden');
         }
 
         // html2pdfを用いたPDFファイルの直接バックグラウンド生成と保存
         function downloadPDF(event) {
             if (event) event.stopPropagation();
             
-            const element = document.querySelector('.print-page');
             const project = getCurrentProject();
+            if (printFormat() === 'a3') { downloadPDFA3(project); return; }
+            const element = document.querySelector('.print-page');
             const projectName = project ? project.name : "標高管理表";
-            const measureDate = project ? project.measureDate : "";
+            const measureDate = project ? (project.rounds[curRound() - 1].date || '') : "";
 
             // 一時的に影を消してPDF of端部を美しくする
             const originalBoxShadow = element.style.boxShadow;
@@ -1235,6 +1513,31 @@
             });
         }
 
+        // A3横 履歴表のPDF（1枚の画像としてA3に配置し、白紙ページを防ぐ）
+        function downloadPDFA3(project) {
+            const el = document.getElementById('print-a3');
+            const btn = document.getElementById('pdf-download-btn');
+            const label = btn.innerHTML;
+            btn.innerHTML = "⏳ 生成中..."; btn.disabled = true;
+            el.style.boxShadow = 'none';
+            const opt = { margin: 0, image: { type: 'jpeg', quality: 0.95 },
+                html2canvas: { scale: 2, useCORS: true, logging: false, scrollX: 0, scrollY: 0 },
+                jsPDF: { unit: 'mm', format: 'a3', orientation: 'landscape' } };
+            const done = () => { el.style.boxShadow = ''; btn.innerHTML = label; btn.disabled = false; };
+            (async () => {
+                const canvas = await html2pdf().set(opt).from(el).toCanvas().get('canvas');
+                const pdf = await html2pdf().set(opt).from('<div></div>').toPdf().get('pdf');
+                pdf.deletePage(1);
+                pdf.addPage('a3', 'landscape');
+                pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 420, 297);
+                pdf.save(`${project.name}_標高管理_履歴_${H.asOfDate(project) || 'data'}.pdf`);
+            })().then(done).catch(err => {
+                console.error(err);
+                alert("PDFの直接生成に失敗しました。「通常の印刷」からPDF保存をお試しください。");
+                done();
+            });
+        }
+
         function closePrintPreview() {
             document.getElementById('print-preview-container').classList.add('hidden');
         }
@@ -1265,7 +1568,7 @@
                         <input type="checkbox" name="delete-project-checkbox" value="${p.id}" class="w-6 h-6 rounded accent-red-600 bg-white dark:bg-slate-950 border-2 border-slate-950 border border-slate-700 cursor-pointer">
                         <span class="text-sm font-black ${p.id === appState.currentProjectId ? 'text-blue-700 dark:text-yellow-400' : 'text-slate-950 dark:text-slate-200'}">${p.name}</span>
                     </div>
-                    <span class="text-xs font-black text-slate-500 dark:text-slate-400">${p.measureDate || '日付なし'}</span>
+                    <span class="text-xs font-black text-slate-500 dark:text-slate-400">${H.asOfDate(p) ? fmtSlash(H.asOfDate(p)) + '時点' : '計測なし'}</span>
                 </div>
             `).join('');
         }
@@ -1282,12 +1585,7 @@
             const newId = 'p_' + Date.now();
             const selectedTemplate = templateSelect.value === 'new' ? templateNew : templateTraditional;
 
-            const newProj = {
-                id: newId,
-                name: name,
-                measureDate: new Date().toISOString().substring(0,10),
-                tabs: JSON.parse(JSON.stringify(selectedTemplate))
-            };
+            const newProj = H.projectFromTemplate(newId, name, selectedTemplate);
 
             appState.projects.push(newProj);
             appState.currentProjectId = newId;
@@ -1365,18 +1663,11 @@
         function exportCSV() {
             const project = getCurrentProject();
             if (!project) return;
-            let csv = '\uFEFF'; // BOM (文字化け防止)
-            csv += '区分,点名,初期値,前月,当月,備考\n';
-            project.tabs.forEach(tab => {
-                tab.data.forEach(item => {
-                    csv += `"${tab.tabName}","${item.id}","${item.init || ''}","${item.prev || ''}","${item.curr || ''}","${item.remarks || ''}"\n`;
-                });
-            });
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const blob = new Blob([H.toCSV(project)], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${project.name}_${project.measureDate || 'data'}.csv`;
+            a.download = `${project.name}_履歴_${H.asOfDate(project) || 'data'}.csv`;
             a.click();
             URL.revokeObjectURL(url);
         }
@@ -1424,5 +1715,6 @@
             reader.readAsText(file);
         }
     </script>
+    <style id="page-size-style">@media print { @page { size: A4 landscape; margin: 0; } }</style>
 </body>
 </html>
