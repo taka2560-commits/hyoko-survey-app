@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>OSR 水辺変状計測</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="henjo-core.js"></script>
+
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="OSR変状計測">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#ffffff" id="meta-theme-color">
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW登録失敗: ', err));
+            });
+        }
+        tailwind.config = { darkMode: 'class' };
+    </script>
+    <style>
+        body { height: 100dvh; width: 100%; overflow: hidden; }
+        html:not(.dark) body { background: #ffffff; color: #000000; }
+        html.dark body { background: #090d16; color: #f1f5f9; }
+
+        /* 判定色（変状計測タブの条件付き書式と同じ） */
+        .lv-warn  { background: #FFFF00 !important; color: #000000 !important; }
+        .lv-limit { background: #FF5050 !important; color: #FFFFFF !important; }
+
+        /* 成分ラベル色（Excel と同じ） */
+        .c-x { background: #9BC2E6; color: #1F4E79; }
+        .c-y { background: #A9D08E; color: #375623; }
+        .c-z { background: #F4B183; color: #843C0C; }
+        .r-x { background: #EAF2FB; }
+        .r-y { background: #EEF6E8; }
+        .r-z { background: #FDF0E6; }
+        html.dark .r-x { background: #0f1e33; }
+        html.dark .r-y { background: #122312; }
+        html.dark .r-z { background: #2a170b; }
+
+        .pt-table td, .pt-table th { padding: 2px 4px; }
+        .num { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+        /* ==================== A3横 帳票（印刷タブの再現） ==================== */
+        #print-overlay { font-family: "BIZ UDPGothic", "Hiragino Kaku Gothic ProN", "Meiryo", Arial, sans-serif; }
+        .a3-page {
+            width: 420mm; height: 297mm; padding: 7mm 8mm 6mm 8mm;
+            background: #ffffff; color: #000000; box-sizing: border-box;
+            margin: 0 auto 12px auto; overflow: hidden; position: relative;
+            box-shadow: 0 0 10px rgba(0,0,0,.35);
+        }
+        .a3-foot { position: absolute; bottom: 4mm; left: 8mm; right: 8mm; font-size: 8pt; display: flex; justify-content: center; }
+        .a3-foot .co { position: absolute; right: 0; }
+        .sheet-title { font-size: 13pt; font-weight: 700; }
+        .sheet-sub { font-size: 8pt; font-weight: 700; }
+        table.sheet { border-collapse: collapse; table-layout: fixed; width: 100%; }
+        table.sheet td, table.sheet th {
+            border: 0.5px solid #808080; font-size: 6.8pt; line-height: 1; height: 4.05mm;
+            padding: 0 1.2mm; white-space: nowrap; overflow: hidden; text-align: center;
+        }
+        table.sheet th { background: #D9D9D9; font-weight: 700; }
+        table.sheet td.nr { text-align: right; }
+        table.sheet td.g-top, table.sheet th.g-top { border-top: 1.4px solid #000; }
+        table.sheet td.rb, table.sheet th.rb { border-right: 1.2px solid #000; }
+        table.sheet .bold { font-weight: 700; }
+        table.sheet .blue { color: #0000FF; }
+        table.sheet .tx-x { color: #1F4E79; } table.sheet .tx-y { color: #375623; } table.sheet .tx-z { color: #843C0C; }
+        .notes { font-size: 7pt; line-height: 1.45; }
+        table.legend { border-collapse: collapse; font-size: 6.8pt; }
+        table.legend td { border: 0.5px solid #808080; padding: 0.4mm 2mm; text-align: center; }
+        .chart-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); gap: 0; height: 252mm; }
+        .chart-cell { border: 0.5px solid #BFBFBF; }
+
+        @media print {
+            @page { size: A3 landscape; margin: 0; }
+            html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
+            #app { display: none !important; }
+            #print-overlay { display: block !important; position: static !important; background: #fff !important; padding: 0 !important; overflow: visible !important; }
+            #print-overlay .no-print { display: none !important; }
+            #print-zoom { zoom: 1 !important; }
+            .a3-page { box-shadow: none !important; margin: 0 !important; page-break-after: always; break-after: page; }
+            .a3-page:last-child { page-break-after: auto; break-after: auto; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        }
+    </style>
+</head>
+<body class="flex flex-col">
+
+<div id="app" class="h-full flex flex-col p-1.5 md:p-2 gap-1.5 overflow-hidden">
+    <!-- ヘッダー -->
+    <div class="shrink-0 bg-slate-100 dark:bg-slate-900 p-1.5 md:p-2 rounded-xl border-2 border-slate-950 dark:border-slate-800 shadow flex flex-wrap items-center gap-1">
+        <a href="index.html" class="bg-slate-200 dark:bg-slate-800 px-2 py-1.5 rounded border-2 border-slate-950 dark:border-slate-700 text-[10px] md:text-xs font-black">← 標高管理</a>
+        <div class="font-black text-xs md:text-sm text-slate-950 dark:text-yellow-400 leading-tight mr-auto">
+            OSR 水辺変状計測<br><span id="hdr-asof" class="text-[10px] font-bold text-slate-600 dark:text-slate-400"></span>
+        </div>
+        <button onclick="openPrint()" class="bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] md:text-xs py-1.5 px-2 rounded-lg border-2 border-blue-800 shadow active:scale-95">📄 A3出力</button>
+        <button onclick="openHelp()" class="bg-indigo-600 text-white font-black text-[10px] md:text-xs py-1.5 px-2 rounded-lg border-2 border-indigo-800 shadow active:scale-95">❓ 説明</button>
+        <button id="theme-btn" onclick="toggleTheme()" class="bg-slate-200 dark:bg-slate-800 font-black text-[10px] md:text-xs py-1.5 px-2 rounded border-2 border-slate-950 dark:border-slate-700 active:scale-95">🌙</button>
+    </div>
+
+    <!-- タブ -->
+    <div id="tabs" class="shrink-0 grid grid-cols-5 gap-1"></div>
+
+    <!-- 回の選択（管理表・取込で共通） -->
+    <div id="round-bar" class="shrink-0 bg-slate-50 dark:bg-slate-900 border-2 border-slate-950 dark:border-slate-800 rounded-xl p-1.5 flex flex-wrap items-center gap-1.5">
+        <button onclick="moveRound(-1)" class="px-3 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 border-2 border-slate-950 dark:border-slate-700 font-black text-sm active:scale-95">◀</button>
+        <select id="round-select" onchange="setRound(this.value)" class="flex-1 min-w-[150px] bg-white dark:bg-slate-950 border-2 border-slate-950 dark:border-slate-700 rounded px-1.5 py-1.5 text-xs font-black"></select>
+        <button onclick="moveRound(1)" class="px-3 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 border-2 border-slate-950 dark:border-slate-700 font-black text-sm active:scale-95">▶</button>
+        <label class="flex items-center gap-1 text-[11px] font-black">
+            計測日▶
+            <input type="date" id="round-date" onchange="setRoundDate(this.value)" class="bg-yellow-200 text-black border-2 border-slate-950 rounded px-1 py-1 text-xs font-black">
+        </label>
+    </div>
+
+    <!-- 本体 -->
+    <div id="view" class="flex-1 min-h-0 overflow-y-auto bg-white dark:bg-slate-950 border-2 border-slate-950 dark:border-slate-800 rounded-xl p-2"></div>
+</div>
+
+<!-- ==================== 測点の直接入力（打ち換え） ==================== -->
+<div id="edit-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-3 bg-black/70">
+    <div class="bg-white dark:bg-slate-900 border-2 border-slate-950 dark:border-slate-700 rounded-2xl p-4 w-full max-w-sm shadow-2xl">
+        <div class="flex justify-between items-center mb-2">
+            <h3 id="edit-title" class="font-black text-sm"></h3>
+            <button onclick="closeEdit()" class="text-xl font-black">✕</button>
+        </div>
+        <p class="text-[10px] font-bold text-slate-600 dark:text-slate-400 mb-2">計測値（m）を直接入力します。空欄＝亡失・計測不能。直接入力した値は取込で上書きされません。</p>
+        <div id="edit-fields" class="space-y-2"></div>
+        <div class="flex flex-wrap gap-2 mt-3">
+            <button onclick="revertEdit()" id="edit-revert" class="bg-amber-500 text-black font-black text-xs py-2 px-2 rounded border-2 border-slate-950 active:scale-95">↺ 取込値に戻す</button>
+            <button onclick="saveEdit()" class="flex-1 bg-emerald-600 text-white font-black text-sm py-2 rounded border-2 border-emerald-800 active:scale-95">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== 説明 ==================== -->
+<div id="help-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-3 bg-black/70">
+    <div class="bg-white dark:bg-slate-900 border-2 border-slate-950 dark:border-slate-700 rounded-2xl p-4 w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col">
+        <div class="flex justify-between items-center mb-2">
+            <h3 class="font-black text-sm text-blue-700 dark:text-yellow-400">水辺変状計測 取扱説明</h3>
+            <button onclick="closeHelp()" class="text-xl font-black">✕</button>
+        </div>
+        <div class="overflow-y-auto text-[11px] leading-relaxed font-bold space-y-2">
+            <p>管理対象：計測用BM 2点（BM-1・BM-2）＋水辺変状計測点 16点（ML1-1〜ML8-2）＝提出18点。補助計測点 8点（ML1-3〜ML8-3）は社内管理のみ（提出しない）。初期値：2026年10月23日計測。計測回：第1回〜第36回（月1回で約3年分）。</p>
+            <p class="text-blue-700 dark:text-sky-400">■ 毎月の作業手順</p>
+            <ol class="list-decimal pl-5 space-y-1">
+                <li>TS・GNSSの観測結果を SIMA（.sim）または CSV で出力。点名は BM-1、ML1-1 などの表記（全角/半角・大小文字は自動補正）。</li>
+                <li>「取込」タブで回を選び、黄色の<b>計測日</b>を入力。</li>
+                <li>ファイルを読込むか、テキストを貼り付けて「▶ 取込実行」。SIMA・CSV・タブ区切りを自動判別。G00/Z00/A00/A99 行もそのままでよい。</li>
+                <li>見出しが「✓取込完了」、判定がすべて「OK」なら完了。OK以外は下の判定表を見て修正し再取込。</li>
+                <li>「管理表」で変状を確認。初期値との差が注意値以上＝黄、管理値以上＝赤。管理値超過は再計測のうえ元請へ報告。</li>
+                <li>「📄 A3出力」→ 表示開始回を選んで印刷 / PDF保存。1枚目＝表、2枚目＝経年変化グラフ（A3横2枚）。</li>
+                <li>月に1回「基準」タブの「💾 バックアップ保存」でデータを保存。</li>
+            </ol>
+            <p class="text-blue-700 dark:text-sky-400">■ 判定の見方</p>
+            <table class="w-full text-[10px] border border-slate-400">
+                <tbody>
+                <tr><td class="border px-1">OK</td><td class="border px-1">本番の表へ反映した</td></tr>
+                <tr><td class="border px-1">OK・差大</td><td class="border px-1">反映したが初期値との差が差大判定値（初期100mm）を超える → 点名の取り違え・観測ミスを確認</td></tr>
+                <tr><td class="border px-1">点名なし</td><td class="border px-1">表にない点名（反映しない）</td></tr>
+                <tr><td class="border px-1">重複</td><td class="border px-1">同じ点名が2行以上（反映しない）→ 不要な行を消す</td></tr>
+                <tr><td class="border px-1">数値エラー</td><td class="border px-1">座標が数値として読めない（反映しない）</td></tr>
+                <tr><td class="border px-1">XY入替?</td><td class="border px-1">XとYが逆（反映しない）→ 出力設定を確認</td></tr>
+                <tr><td class="border px-1">対象外行</td><td class="border px-1">SIMAの見出し行など（そのままでよい）</td></tr>
+                <tr><td class="border px-1">反映済 / 本番で修正</td><td class="border px-1">本番照合：取込値と表が一致 / 表で直接打ち換え済（表の値が正）</td></tr>
+                </tbody>
+            </table>
+            <p class="text-blue-700 dark:text-sky-400">■ 表の見方</p>
+            <p>初期値との差＝計測値−初期値（mm、四捨五入）。前回との差＝計測値−前回の計測値（第1回は初期値との差と同じ、前回が空欄なら空欄）。変位方向 X：＋（北）／−（南）、Y：＋（東）／−（西）、Z：↑（上昇）／↓（沈下）、±0：変位なし。</p>
+            <p>測点が亡失した場合は計測値を空欄のままにし、備考（工程）に「○○亡失」と記入。</p>
+            <p class="text-slate-500">原本：20261024_OSR水辺変状計測.xlsx（株式会社テクノライン）の計算式・判定・様式を移植。</p>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== A3 印刷プレビュー ==================== -->
+<div id="print-overlay" class="hidden fixed inset-0 z-50 bg-slate-700 overflow-auto p-2">
+    <div class="no-print sticky top-0 left-0 z-10 bg-slate-900 text-white p-2 rounded-lg mb-2 flex flex-wrap items-center gap-2 shadow-lg">
+        <span class="text-xs font-black text-yellow-400">📄 A3横 2枚（表・グラフ）</span>
+        <label class="text-xs font-black flex items-center gap-1">表示開始回▶
+            <select id="print-start" onchange="setPrintStart(this.value)" class="text-black text-xs font-black rounded px-1 py-1"></select>
+        </label>
+        <label class="text-xs font-black flex items-center gap-1"><input type="checkbox" id="print-fit" onchange="applyPrintZoom()" checked> 画面に合わせる</label>
+        <div class="ml-auto flex gap-1.5">
+            <button id="pdf-btn" onclick="downloadPDF()" class="bg-emerald-600 text-white font-black text-xs py-1.5 px-2.5 rounded border border-emerald-700 active:scale-95">📥 PDF保存</button>
+            <button onclick="window.print()" class="bg-blue-600 text-white font-black text-xs py-1.5 px-2.5 rounded border border-blue-700 active:scale-95">🖨️ 印刷</button>
+            <button onclick="closePrint()" class="bg-slate-600 text-white font-black text-xs py-1.5 px-2.5 rounded active:scale-95">閉じる</button>
+        </div>
+    </div>
+    <div id="print-zoom">
+        <div id="print-pages"></div>
+    </div>
+</div>
+
+<input type="file" id="file-import" accept=".sim,.csv,.txt,.SIM,.CSV,.TXT,text/plain,text/csv" class="hidden" onchange="loadImportFile(event)">
+<input type="file" id="file-restore" accept=".json,application/json" class="hidden" onchange="restoreJSON(event)">
+
+<script>
+const C = window.HenjoCore;
+const STORE_KEY = 'henjo_state_v1';
+const TABS = [
+    { id: 'table',    label: '管理表' },
+    { id: 'import',   label: '取込' },
+    { id: 'graph',    label: 'グラフ' },
+    { id: 'map',      label: '配置図' },
+    { id: 'settings', label: '基準' }
+];
+
+let state = loadState();
+let currentTab = localStorage.getItem('henjo_tab') || 'table';
+let tableKind = 'main';     // main=提出18点 / aux=補助8点
+let graphKind = 'ml';       // ml=16点 / bm / aux
+let mapZoom = 1;
+let editingPoint = null;
+let isDark = localStorage.getItem('survey_dark_mode') === 'true';
+
+function loadState() {
+    try {
+        const s = localStorage.getItem(STORE_KEY);
+        if (s) return C.normalizeState(JSON.parse(s));
+    } catch (e) { console.error(e); }
+    const st = C.createState();
+    return st;
+}
+function saveState() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+
+function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+const f3 = v => (C.isNum(v) ? v.toFixed(3) : '');
+const fmm = v => (C.isNum(v) ? String(v) : '');   // 書式 0;\-0;0
+const lvClass = lv => (lv === 'limit' ? 'lv-limit' : lv === 'warn' ? 'lv-warn' : '');
+
+// ==================== テーマ ====================
+function applyTheme() {
+    document.documentElement.classList.toggle('dark', isDark);
+    document.getElementById('theme-btn').innerText = isDark ? '☀️' : '🌙';
+    document.getElementById('meta-theme-color').setAttribute('content', isDark ? '#090d16' : '#ffffff');
+}
+function toggleTheme() {
+    isDark = !isDark;
+    localStorage.setItem('survey_dark_mode', isDark);
+    applyTheme();
+}
+
+// ==================== 共通UI ====================
+function renderTabs() {
+    document.getElementById('tabs').innerHTML = TABS.map(t => {
+        const on = t.id === currentTab;
+        const cls = on
+            ? 'bg-blue-700 dark:bg-blue-600 text-white border-slate-950 dark:border-blue-500 shadow-md'
+            : 'bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-300 border-slate-950 dark:border-slate-700';
+        return `<button onclick="switchTab('${t.id}')" class="py-2 text-[11px] md:text-xs rounded-lg font-black border-2 ${cls}">${t.label}</button>`;
+    }).join('');
+    document.getElementById('round-bar').style.display = (currentTab === 'table' || currentTab === 'import') ? '' : 'none';
+}
+
+function switchTab(id) {
+    currentTab = id;
+    localStorage.setItem('henjo_tab', id);
+    render();
+    document.getElementById('view').scrollTop = 0;
+}
+
+function renderRoundBar() {
+    const sel = document.getElementById('round-select');
+    let html = '';
+    for (let r = 1; r <= C.ROUND_COUNT; r++) {
+        const d = state.rounds[r - 1].date;
+        html += `<option value="${r}" ${r === state.currentRound ? 'selected' : ''}>第${r}回　${d ? C.fmtSlash(d) : '（未計測）'}</option>`;
+    }
+    sel.innerHTML = html;
+    document.getElementById('round-date').value = state.rounds[state.currentRound - 1].date || '';
+    const asof = C.asOfDate(state);
+    document.getElementById('hdr-asof').innerText = (asof ? C.fmtJP(asof) + '時点' : '') + '　計測済 ' + C.measuredCount(state) + '回';
+}
+
+function setRound(v) { state.currentRound = C.normalizeState({ currentRound: v }).currentRound; saveState(); render(); }
+function moveRound(d) { setRound(state.currentRound + d); }
+function setRoundDate(v) {
+    state.rounds[state.currentRound - 1].date = v || '';
+    saveState();
+    render();
+}
+
+function render() {
+    renderTabs();
+    renderRoundBar();
+    const v = document.getElementById('view');
+    if (currentTab === 'table') v.innerHTML = viewTable();
+    else if (currentTab === 'import') v.innerHTML = viewImport();
+    else if (currentTab === 'graph') v.innerHTML = viewGraph();
+    else if (currentTab === 'map') v.innerHTML = viewMap();
+    else v.innerHTML = viewSettings();
+}
+
+// ==================== 管理表（変状計測／補助点-3） ====================
+function viewTable() {
+    const r = state.currentRound;
+    const round = state.rounds[r - 1];
+    const pts = tableKind === 'main' ? C.MAIN_POINTS : C.AUX_POINTS;
+    const al = C.roundAlerts(state, r, pts);
+    const s = state.settings;
+    const seg = (k, label) => `<button onclick="tableKind='${k}';render()" class="flex-1 py-1.5 text-[11px] font-black rounded border-2 border-slate-950 dark:border-slate-700 ${tableKind === k ? 'bg-slate-900 text-white dark:bg-yellow-400 dark:text-black' : 'bg-white dark:bg-slate-900'}">${label}</button>`;
+
+    let html = `
+    <div class="flex gap-1 mb-2">${seg('main', '変状計測（提出18点）')}${seg('aux', '補助点-3（社内8点）')}</div>
+    <div class="flex flex-wrap gap-1 items-center mb-2 text-[11px] font-black">
+        <span class="px-2 py-1 rounded border border-slate-400">XY 注意<span class="lv-warn px-1 mx-0.5">${s.xyWarn}</span>管理<span class="lv-limit px-1 mx-0.5">${s.xyLimit}</span>mm</span>
+        <span class="px-2 py-1 rounded border border-slate-400">Z 注意<span class="lv-warn px-1 mx-0.5">${s.zWarn}</span>管理<span class="lv-limit px-1 mx-0.5">${s.zLimit}</span>mm</span>
+        <span class="px-2 py-1 rounded ${al.limit ? 'lv-limit' : 'bg-slate-100 dark:bg-slate-800'}">管理値超過 ${al.limit}</span>
+        <span class="px-2 py-1 rounded ${al.warn ? 'lv-warn' : 'bg-slate-100 dark:bg-slate-800'}">注意値超過 ${al.warn}</span>
+    </div>
+    <label class="flex items-center gap-1 mb-2 text-[11px] font-black">備考（工程）
+        <input type="text" value="${esc(round.remarks)}" onchange="setRemarks(this.value)" placeholder="例：○○工事開始、ML3-2亡失" class="flex-1 bg-white dark:bg-slate-900 border-2 border-slate-950 dark:border-slate-700 rounded px-2 py-1 text-xs text-blue-700 dark:text-sky-300">
+    </label>
+    ${!C.isDate(round.date) ? '<div class="mb-2 p-2 rounded bg-amber-100 dark:bg-amber-900/40 text-[11px] font-black text-amber-900 dark:text-amber-200">⚠ この回の計測日が未入力です（グラフ・印刷に日付が出ません）。</div>' : ''}
+    <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">`;
+
+    pts.forEach(p => {
+        const src = round.src[p.name] || {};
+        const manual = Object.values(src).indexOf('manual') >= 0;
+        html += `
+        <div onclick="openEdit('${p.name}')" class="border-2 border-slate-950 dark:border-slate-700 rounded-lg overflow-hidden active:opacity-70 cursor-pointer">
+            <div class="flex items-center justify-between px-2 py-1 bg-slate-100 dark:bg-slate-900">
+                <span class="font-black text-sm">${p.no ? p.no + ' ' : ''}${p.name}</span>
+                <span class="text-[10px] font-black text-slate-500">${esc(p.line)}${manual ? '　<span class="text-blue-600 dark:text-sky-400">✎直接入力</span>' : ''}</span>
+            </div>
+            <table class="pt-table w-full text-[11px] num">
+                <thead><tr class="text-[9px] text-slate-500 font-sans"><th class="w-9"></th><th class="text-right">計測値 / 初期値 (m)</th><th class="text-right">初期値との差</th><th class="text-right">前回との差</th></tr></thead>
+                <tbody>`;
+        C.COMPS.forEach(c => {
+            const cc = C.cellCalc(state, r, p, c);
+            html += `<tr class="r-${c}">
+                <td class="c-${c} text-center font-black font-sans text-[10px]">${c === 'z' ? 'Z' : c.toUpperCase()}</td>
+                <td class="text-right leading-tight"><span class="font-black">${cc.value === null ? '<span class="text-slate-400 font-sans">―</span>' : f3(cc.value)}</span><br><span class="text-[9px] text-slate-500">${f3(p[c])}</span></td>
+                <td class="text-right font-black ${lvClass(cc.level)}">${fmm(cc.dInit)} <span class="inline-block w-4 text-center">${cc.dirInit}</span></td>
+                <td class="text-right">${fmm(cc.dPrev)} <span class="inline-block w-4 text-center">${cc.dirPrev}</span></td>
+            </tr>`;
+        });
+        html += `</tbody></table></div>`;
+    });
+    html += `</div>
+    <p class="text-[10px] font-bold text-slate-500 mt-2">単位：差は mm（四捨五入）。カードをタップすると計測値を直接入力（打ち換え）できます。</p>`;
+    return html;
+}
+
+function setRemarks(v) {
+    state.rounds[state.currentRound - 1].remarks = v;
+    saveState();
+}
+
+// ---------- 直接入力 ----------
+function openEdit(name) {
+    editingPoint = C.findPoint(name);
+    const r = state.currentRound;
+    document.getElementById('edit-title').innerText = `第${r}回　${editingPoint.no ? editingPoint.no + ' ' : ''}${editingPoint.name}`;
+    document.getElementById('edit-fields').innerHTML = C.COMPS.map(c => {
+        const v = C.getValue(state, r, editingPoint.name, c);
+        return `<div class="flex items-center gap-1.5">
+            <span class="c-${c} w-14 text-center text-xs font-black rounded py-1.5">${C.COMP_LABEL[c]}</span>
+            <input id="edit-${c}" type="text" inputmode="decimal" value="${v === null ? '' : v.toFixed(3)}" placeholder="${f3(editingPoint[c])}"
+                class="flex-1 min-w-0 num bg-white dark:bg-slate-950 border-2 border-slate-950 dark:border-slate-700 rounded px-2 py-1.5 text-sm font-black">
+            <button onclick="copyInit('${c}')" class="text-[10px] font-black px-1.5 py-1.5 rounded border border-slate-500 bg-slate-100 dark:bg-slate-800 leading-tight">初期値<br>コピー</button>
+        </div>`;
+    }).join('');
+    const hasImport = !!(state.rounds[r - 1].src[name]);
+    document.getElementById('edit-revert').style.display = hasImport ? '' : 'none';
+    document.getElementById('edit-modal').classList.remove('hidden');
+}
+function copyInit(c) {
+    const el = document.getElementById('edit-' + c);
+    el.value = editingPoint[c].toFixed(3);
+    el.focus();
+}
+function closeEdit() { document.getElementById('edit-modal').classList.add('hidden'); editingPoint = null; }
+function saveEdit() {
+    const r = state.currentRound;
+    const vals = {};
+    for (const c of C.COMPS) {
+        const t = C.toHalfWidth(document.getElementById('edit-' + c).value).trim();
+        if (t === '') { vals[c] = null; continue; }
+        const n = C.toNumber(t);
+        if (!C.isNum(n)) { alert(`${C.COMP_LABEL[c]} が数値ではありません：${t}`); return; }
+        vals[c] = n;
+    }
+    for (const c of C.COMPS) {
+        const cur = C.getValue(state, r, editingPoint.name, c);
+        const changed = !((cur === null && vals[c] === null) || (cur !== null && vals[c] !== null && Math.abs(cur - vals[c]) < 1e-9));
+        if (changed) C.setManual(state, r, editingPoint.name, c, vals[c]);
+    }
+    saveState();
+    closeEdit();
+    render();
+}
+function revertEdit() {
+    C.revertToImport(state, state.currentRound, editingPoint.name);
+    saveState();
+    closeEdit();
+    render();
+}
+
+// ==================== 計測値取込 ====================
+function judgeClass(j) {
+    if (j === 'OK') return 'text-emerald-700 dark:text-emerald-400';
+    if (j === 'OK・差大') return 'bg-amber-200 text-black';
+    if (j === '対象外行' || j === '') return 'text-slate-400';
+    return 'bg-red-600 text-white';
+}
+function viewImport() {
+    const r = state.currentRound;
+    const round = state.rounds[r - 1];
+    const sum = C.importSummary(state, r);
+    const st = sum.status;
+    const stCls = st.indexOf('✓') === 0 ? 'bg-emerald-600 text-white' : st ? 'bg-red-600 text-white' : 'bg-slate-200 dark:bg-slate-800';
+    let html = `
+    <div class="bg-orange-400 text-black text-[11px] font-black px-2 py-1 rounded-t">第${r}回　★ 観測データ（SIMA / CSV）を貼り付け</div>
+    <div class="flex flex-wrap gap-1 items-center py-1.5 text-[11px] font-black">
+        <span class="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800">${sum.reflectedText}</span>
+        <span class="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800">${sum.notImportedText}</span>
+        ${st ? `<span class="px-2 py-1 rounded ${stCls}">${st}</span>` : ''}
+    </div>
+    <textarea id="import-text" rows="8" spellcheck="false" placeholder="例）&#10;A01,1,BM-1,-147735.684,-51507.098,8.240,&#10;または&#10;ML1-1,-147795.340,-51456.801,7.291"
+        class="w-full num text-[11px] bg-yellow-50 dark:bg-slate-900 border-2 border-red-600 rounded p-1.5">${esc(round.importText)}</textarea>
+    <button onclick="runImport()" class="w-full mt-1.5 bg-emerald-600 text-white font-black text-sm py-2.5 rounded border-2 border-emerald-800 active:scale-95">▶ 取込実行</button>
+    <div class="flex flex-wrap gap-1.5 mt-1.5">
+        <button onclick="document.getElementById('file-import').click()" class="bg-slate-200 dark:bg-slate-800 font-black text-xs py-2 px-2.5 rounded border-2 border-slate-950 dark:border-slate-700 active:scale-95">📂 ファイル読込</button>
+        <button onclick="pasteClipboard()" class="bg-slate-200 dark:bg-slate-800 font-black text-xs py-2 px-2.5 rounded border-2 border-slate-950 dark:border-slate-700 active:scale-95">📋 貼り付け</button>
+        <button onclick="clearImport()" class="ml-auto bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300 font-black text-xs py-2 px-2.5 rounded border-2 border-red-700 active:scale-95">🗑 やり直し</button>
+    </div>
+    <p class="text-[10px] font-bold text-slate-500 mt-1">SIMA（A01,点番,点名,X,Y,Z）・CSV（点名,X,Y,Z）・列分割（タブ区切り）を自動判別。OK＝反映、OK・差大＝反映（値を要確認）、赤表示＝反映しない（直して再取込）、（補助）＝-3点→補助点-3。</p>`;
+
+    const rows = sum.parsed.rows.filter(x => x.raw.trim() !== '');
+    if (rows.length) {
+        html += `<div class="overflow-x-auto mt-2"><table class="w-full text-[10px] border-collapse">
+            <thead><tr class="bg-slate-200 dark:bg-slate-800 font-black">
+                <th class="border border-slate-400 px-1">行</th><th class="border border-slate-400 px-1">認識点名</th>
+                <th class="border border-slate-400 px-1">X</th><th class="border border-slate-400 px-1">Y</th><th class="border border-slate-400 px-1">Z</th>
+                <th class="border border-slate-400 px-1">判定</th><th class="border border-slate-400 px-1">本番照合</th></tr></thead><tbody>`;
+        rows.forEach(x => {
+            const nm = x.point ? x.point.name + (x.kind === '補' ? '（補助）' : '') : x.name;
+            const ver = C.verifyRow(state, r, x);
+            const isData = x.type === 'SIMA' || x.type === 'CSV';
+            html += `<tr>
+                <td class="border border-slate-300 px-1 text-center text-slate-500">${x.lineNo}</td>
+                <td class="border border-slate-300 px-1 font-black">${esc(nm)}</td>
+                <td class="border border-slate-300 px-1 text-right num">${isData ? (C.isNum(x.x) ? x.x.toFixed(3) : '×') : ''}</td>
+                <td class="border border-slate-300 px-1 text-right num">${isData ? (C.isNum(x.y) ? x.y.toFixed(3) : '×') : ''}</td>
+                <td class="border border-slate-300 px-1 text-right num">${isData ? (C.isNum(x.z) ? x.z.toFixed(3) : '×') : ''}</td>
+                <td class="border border-slate-300 px-1 text-center font-black ${judgeClass(x.judge)}">${esc(x.judge)}</td>
+                <td class="border border-slate-300 px-1 text-center ${ver === '本番で修正' ? 'text-blue-700 dark:text-sky-400 font-black' : 'text-slate-500'}">${ver}</td>
+            </tr>`;
+        });
+        html += `</tbody></table></div>`;
+    }
+
+    // 未取込の点
+    const okNames = {};
+    sum.parsed.rows.forEach(x => { if (x.judge.slice(0, 2) === 'OK') okNames[x.point.name] = 1; });
+    const missing = C.ALL_POINTS.filter(p => !okNames[p.name]).map(p => p.name + (p.kind === 'aux' ? '(補)' : ''));
+    if (sum.parsed.hasRows && missing.length) {
+        html += `<p class="text-[10px] font-bold mt-2 text-slate-600 dark:text-slate-400">未取込の点：${missing.join('、')}<br>※補助点を測らない月は「未取込 8点」でも本番は問題なし。</p>`;
+    }
+    html += `<div class="mt-3 pt-2 border-t border-slate-300 dark:border-slate-700 flex flex-wrap gap-1.5">
+        <button onclick="exportSIMA()" class="bg-indigo-600 text-white font-black text-[11px] py-1.5 px-2.5 rounded border-2 border-indigo-800 active:scale-95">📤 第${r}回をSIMA出力（Excel貼付用）</button>
+    </div>`;
+    return html;
+}
+
+function runImport() {
+    const text = document.getElementById('import-text').value;
+    C.applyImport(state, state.currentRound, text);
+    saveState();
+    render();
+}
+function clearImport() {
+    if (!confirm(`第${state.currentRound}回の取込データを消去します（取込で入った計測値も空欄に戻ります。直接入力した値は残ります）。よろしいですか？`)) return;
+    C.applyImport(state, state.currentRound, '');
+    saveState();
+    render();
+}
+async function pasteClipboard() {
+    try {
+        const t = await navigator.clipboard.readText();
+        document.getElementById('import-text').value = t;
+        runImport();
+    } catch (e) {
+        alert('クリップボードを読み取れませんでした。入力欄を長押しして「ペースト」してください。');
+    }
+}
+function loadImportFile(ev) {
+    const file = ev.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        const buf = new Uint8Array(e.target.result);
+        let text;
+        try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+        catch (err) { text = new TextDecoder('shift_jis').decode(buf); }   // SIMA は Shift_JIS が多い
+        text = text.replace(/^﻿/, '');
+        document.getElementById('import-text').value = text;
+        runImport();
+    };
+    reader.readAsArrayBuffer(file);
+    ev.target.value = '';
+}
+
+// ==================== 経時変化グラフ ====================
+function niceRange(vals) {
+    let m = 0;
+    vals.forEach(v => { if (C.isNum(v)) m = Math.max(m, Math.abs(v)); });
+    if (m === 0) m = 1;
+    m *= 1.05;
+    const steps = [1, 2, 2.5, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000];
+    let step = steps[steps.length - 1];
+    for (const s of steps) { if (m / s <= 4) { step = s; break; } }
+    const top = Math.ceil(m / step) * step;
+    return { min: -top, max: top, step: step };
+}
+
+/** SVG 折れ線グラフ（Excel のグラフ色・線種に合わせる） */
+function svgChart(point, opt) {
+    const g = C.graphSeries(state, point);
+    const W = opt.w, H = opt.h;
+    const pad = { l: 26, r: 8, t: 28, b: 30 };
+    const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+    const rg = niceRange([].concat(g.x, g.y, g.z, g.xyP, g.zP));
+    const n = g.cats.length;
+    const xAt = i => pad.l + (n <= 1 ? pw / 2 : (pw * (i + 0.5)) / n);
+    const yAt = v => pad.t + ph * (rg.max - v) / (rg.max - rg.min);
+    const fs = opt.fs || 8;
+    let s = `<svg viewBox="0 0 ${W} ${H}" ${opt.fixed ? `width="${W}" height="${H}"` : 'width="100%"'} style="display:block" xmlns="http://www.w3.org/2000/svg" font-family="Arial, sans-serif">`;
+    s += `<rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>`;
+    s += `<text x="${W / 2}" y="11" text-anchor="middle" font-size="${fs + 1.5}" font-weight="700" fill="#262626">${esc(point.name)}</text>`;
+    // 凡例
+    const lg = [['X', '#2E75B6', ''], ['Y', '#548235', ''], ['Z', '#C55A11', ''], ['XY管理', '#FF0000', '4,2'], ['Z管理', '#843C0C', '1.2,1.2']];
+    let lx = W / 2 - 100;
+    lg.forEach(([t, col, dash]) => {
+        s += `<line x1="${lx}" y1="20" x2="${lx + 12}" y2="20" stroke="${col}" stroke-width="1.4" ${dash ? `stroke-dasharray="${dash}"` : ''}/>`;
+        if (!dash) s += `<circle cx="${lx + 6}" cy="20" r="1.8" fill="${col}"/>`;
+        s += `<text x="${lx + 14}" y="22.5" font-size="${fs - 1}" fill="#595959">${t}</text>`;
+        lx += t.length > 2 ? 52 : 26;
+    });
+    // 目盛
+    for (let v = rg.min; v <= rg.max + 1e-9; v += rg.step) {
+        const y = yAt(v);
+        s += `<line x1="${pad.l}" y1="${y}" x2="${W - pad.r}" y2="${y}" stroke="${v === 0 ? '#7F7F7F' : '#D9D9D9'}" stroke-width="${v === 0 ? 0.8 : 0.5}"/>`;
+        s += `<text x="${pad.l - 3}" y="${y + 2.5}" text-anchor="end" font-size="${fs - 1}" fill="#595959">${+v.toFixed(2)}</text>`;
+    }
+    s += `<line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${pad.t + ph}" stroke="#404040" stroke-width="0.8"/>`;
+    // 横軸ラベル
+    g.cats.forEach((c, i) => {
+        if (!c) return;
+        const x = xAt(i), y = pad.t + ph + 6;
+        s += `<text x="${x}" y="${y}" transform="rotate(-45 ${x} ${y})" text-anchor="end" font-size="${fs - 1.5}" fill="#595959">${c}</text>`;
+    });
+    // 系列（#N/A は飛ばして線をつなぐ）
+    const line = (arr, col, width, dash, marker) => {
+        const pts = [];
+        arr.forEach((v, i) => { if (C.isNum(v)) pts.push([xAt(i), yAt(v)]); });
+        if (!pts.length) return '';
+        let o = '';
+        if (pts.length > 1) o += `<polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="${col}" stroke-width="${width}" ${dash ? `stroke-dasharray="${dash}"` : ''}/>`;
+        if (marker) pts.forEach(p => { o += `<circle cx="${p[0]}" cy="${p[1]}" r="2" fill="${col}"/>`; });
+        return o;
+    };
+    s += line(g.xyP, '#FF0000', 0.9, '4,2', false) + line(g.xyM, '#FF0000', 0.9, '4,2', false);
+    s += line(g.zP, '#843C0C', 0.9, '1.2,1.2', false) + line(g.zM, '#843C0C', 0.9, '1.2,1.2', false);
+    s += line(g.x, '#2E75B6', 1.4, '', true) + line(g.y, '#548235', 1.4, '', true) + line(g.z, '#C55A11', 1.4, '', true);
+    s += '</svg>';
+    return s;
+}
+
+function viewGraph() {
+    const seg = (k, label) => `<button onclick="graphKind='${k}';render()" class="flex-1 py-1.5 text-[11px] font-black rounded border-2 border-slate-950 dark:border-slate-700 ${graphKind === k ? 'bg-slate-900 text-white dark:bg-yellow-400 dark:text-black' : 'bg-white dark:bg-slate-900'}">${label}</button>`;
+    const pts = graphKind === 'ml' ? C.GRAPH_POINTS : graphKind === 'bm' ? C.MAIN_POINTS.filter(p => p.line === '計測用BM') : C.AUX_POINTS;
+    let html = `<div class="flex gap-1 mb-2">${seg('ml', 'ML 16点（提出）')}${seg('bm', '計測用BM')}${seg('aux', '補助点-3')}</div>
+    <p class="text-[10px] font-bold text-slate-600 dark:text-slate-400 mb-2">初期値との差（mm）。青＝X（＋北）　緑＝Y（＋東）　橙＝Z（↑上昇）　破線＝XY ±管理値　点線＝Z ±管理値　横軸＝計測日（初期値〜最新の計測済期間）</p>
+    <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">`;
+    pts.forEach(p => { html += `<div class="border border-slate-300 rounded bg-white">${svgChart(p, { w: 300, h: 200, fs: 9 })}</div>`; });
+    return html + '</div>';
+}
+
+// ==================== 配置図 ====================
+function viewMap() {
+    return `<div class="flex items-center gap-1.5 mb-2 text-[11px] font-black">
+        <span>水辺変状計測基準座標図（2026.10.24 / S=1:5000 A3）</span>
+        <span class="ml-auto"></span>
+        <button onclick="zoomMap(-1)" class="px-3 py-1 rounded border-2 border-slate-950 dark:border-slate-700 bg-slate-200 dark:bg-slate-800">−</button>
+        <button onclick="zoomMap(0)" class="px-2 py-1 rounded border-2 border-slate-950 dark:border-slate-700 bg-slate-200 dark:bg-slate-800">全体</button>
+        <button onclick="zoomMap(1)" class="px-3 py-1 rounded border-2 border-slate-950 dark:border-slate-700 bg-slate-200 dark:bg-slate-800">＋</button>
+    </div>
+    <div class="overflow-auto border border-slate-300 rounded bg-white" style="max-height: calc(100dvh - 190px)">
+        <img src="henjo_haichi.jpg" alt="水辺変状計測基準座標図" style="width:${Math.round(mapZoom * 100)}%; max-width:none;">
+    </div>
+    <p class="text-[10px] font-bold text-slate-500 mt-1">測点種別：BM-1＝4級基準点（金属鋲）、BM-2＝白鋲（金属標）、ML○-○＝赤鋲・手摺シール。</p>`;
+}
+function zoomMap(d) {
+    mapZoom = d === 0 ? 1 : Math.max(1, Math.min(5, mapZoom + d * 0.75));
+    render();
+}
+
+// ==================== 管理基準・データ管理 ====================
+function viewSettings() {
+    const s = state.settings;
+    const bad = s.xyWarn > s.xyLimit || s.zWarn > s.zLimit;
+    const inp = (k) => `<input type="number" inputmode="decimal" step="any" value="${s[k]}" onchange="setSetting('${k}', this.value)" class="w-20 bg-yellow-200 text-blue-700 border-2 border-slate-950 rounded px-1.5 py-1 text-sm font-black text-right">`;
+    let html = `
+    <h3 class="font-black text-sm mb-1">管理基準値（初期値との差の絶対値で判定）</h3>
+    <table class="text-xs mb-1 border-collapse">
+        <thead><tr class="bg-slate-200 dark:bg-slate-800"><th class="border border-slate-400 px-2 py-1">成分</th><th class="border border-slate-400 px-2">注意値(mm)</th><th class="border border-slate-400 px-2">管理値(mm)</th><th class="border border-slate-400 px-2">対象</th></tr></thead>
+        <tbody>
+            <tr><td class="border border-slate-400 px-2 font-black">XY（水平）</td><td class="border border-slate-400 p-1">${inp('xyWarn')}</td><td class="border border-slate-400 p-1">${inp('xyLimit')}</td><td class="border border-slate-400 px-2 text-[10px]">X行・Y行の「初期値との差」</td></tr>
+            <tr><td class="border border-slate-400 px-2 font-black">Z（鉛直）</td><td class="border border-slate-400 p-1">${inp('zWarn')}</td><td class="border border-slate-400 p-1">${inp('zLimit')}</td><td class="border border-slate-400 px-2 text-[10px]">Z(OP)行の「初期値との差」</td></tr>
+        </tbody>
+    </table>
+    <p class="text-xs font-black mb-1 ${bad ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}">${bad ? '⚠ 注意値が管理値を上回っています' : '✓ 設定OK'}</p>
+    <p class="text-[10px] font-bold text-slate-500 mb-3">値を変更すると管理表の色判定（黄＝注意値以上／赤白＝管理値以上）とグラフの基準線に反映されます。元請・現場の管理基準に合わせて変更してください。</p>
+
+    <h3 class="font-black text-sm mb-1">取込チェック</h3>
+    <div class="text-xs mb-1 flex items-center gap-2">差大判定(mm) ${inp('importDiff')}</div>
+    <p class="text-[10px] font-bold text-slate-500 mb-1">取込値と初期値の差がこれを超えると「OK・差大」（反映するが要確認）。</p>
+    <p class="text-[10px] font-bold text-slate-500 mb-3">XY入替判定：取込X≒初期Y かつ 取込Y≒初期X（1m以内）なら「XY入替?」として反映しない。</p>
+
+    <h3 class="font-black text-sm mb-1">データ管理</h3>
+    <div class="flex flex-wrap gap-1.5 mb-3">
+        <button onclick="backupJSON()" class="bg-indigo-600 text-white font-black text-xs py-2 px-2.5 rounded border-2 border-indigo-800 active:scale-95">💾 バックアップ保存</button>
+        <button onclick="document.getElementById('file-restore').click()" class="bg-amber-600 text-white font-black text-xs py-2 px-2.5 rounded border-2 border-amber-800 active:scale-95">📂 バックアップから復元</button>
+        <button onclick="exportCSV()" class="bg-emerald-600 text-white font-black text-xs py-2 px-2.5 rounded border-2 border-emerald-800 active:scale-95">📊 全回CSV出力</button>
+        <button onclick="resetAll()" class="bg-red-600 text-white font-black text-xs py-2 px-2.5 rounded border-2 border-red-900 active:scale-95">🗑 全計測データ消去</button>
+    </div>
+
+    <h3 class="font-black text-sm mb-1">初期値（${C.fmtSlash(state.initDate)} 計測）</h3>
+    <p class="text-[10px] font-bold text-slate-500 mb-1">水辺変状計測基準座標図（2026.10.24）および Excel 原本の座標値。X＝南北（北が＋）、Y＝東西（東が＋）、Z＝標高（OP）。</p>
+    <div class="overflow-x-auto"><table class="text-[10px] num border-collapse w-full">
+        <thead><tr class="bg-slate-200 dark:bg-slate-800 font-sans"><th class="border border-slate-400 px-1">区分</th><th class="border border-slate-400 px-1">測線</th><th class="border border-slate-400 px-1">番号</th><th class="border border-slate-400 px-1">測点名</th><th class="border border-slate-400 px-1">X</th><th class="border border-slate-400 px-1">Y</th><th class="border border-slate-400 px-1">Z (OP)</th></tr></thead><tbody>`;
+    C.ALL_POINTS.forEach(p => {
+        html += `<tr><td class="border border-slate-300 px-1 font-sans">${p.kind === 'main' ? '提出' : '補助'}</td><td class="border border-slate-300 px-1 font-sans">${esc(p.line)}</td><td class="border border-slate-300 px-1 text-center font-sans">${p.no}</td><td class="border border-slate-300 px-1 font-black">${p.name}</td>
+            <td class="border border-slate-300 px-1 text-right">${f3(p.x)}</td><td class="border border-slate-300 px-1 text-right">${f3(p.y)}</td><td class="border border-slate-300 px-1 text-right">${f3(p.z)}</td></tr>`;
+    });
+    return html + '</tbody></table></div>';
+}
+function setSetting(k, v) {
+    const n = C.toNumber(v);
+    if (!C.isNum(n) || n < 0) { alert('0以上の数値を入力してください。'); render(); return; }
+    state.settings[k] = n;
+    saveState();
+    render();
+}
+
+function download(name, data, type) {
+    const blob = new Blob([data], { type: type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+const today = () => new Date().toISOString().slice(0, 10);
+function backupJSON() { download(`OSR水辺変状計測_backup_${today()}.json`, JSON.stringify({ app: 'henjo', state: state }, null, 2), 'application/json'); }
+function restoreJSON(ev) {
+    const file = ev.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        try {
+            const obj = JSON.parse(e.target.result);
+            if (!obj || obj.app !== 'henjo' || !obj.state) throw new Error('format');
+            state = C.normalizeState(obj.state);
+            saveState();
+            render();
+            alert('バックアップから復元しました。');
+        } catch (err) {
+            alert('変状計測のバックアップファイルではありません。');
+        }
+    };
+    reader.readAsText(file);
+    ev.target.value = '';
+}
+function exportCSV() { download(`OSR水辺変状計測_${today()}.csv`, C.toCSV(state), 'text/csv;charset=utf-8'); }
+function exportSIMA() {
+    const r = state.currentRound;
+    download(`OSR水辺変状計測_第${r}回.sim`, C.toSIMA(state, r), 'text/plain;charset=utf-8');
+}
+function resetAll() {
+    if (!confirm('全36回の計測値・計測日・取込データ・備考を消去します（管理基準は残ります）。元に戻せません。よろしいですか？')) return;
+    const keep = state.settings;
+    state = C.createState();
+    state.settings = keep;
+    saveState();
+    render();
+}
+
+// ==================== A3 帳票（印刷タブ・経年変化グラフ） ====================
+function openPrint() {
+    const sel = document.getElementById('print-start');
+    let html = `<option value="latest">最新</option>`;
+    for (let i = 1; i <= C.ROUND_COUNT - C.PRINT_COLS + 1; i++) html += `<option value="${i}">${i}</option>`;
+    sel.innerHTML = html;
+    sel.value = String(state.printStart || 'latest');
+    renderPrint();
+    document.getElementById('print-overlay').classList.remove('hidden');
+    applyPrintZoom();
+}
+function closePrint() { document.getElementById('print-overlay').classList.add('hidden'); }
+function setPrintStart(v) { state.printStart = v; saveState(); renderPrint(); }
+function applyPrintZoom() {
+    const fit = document.getElementById('print-fit').checked;
+    const z = document.getElementById('print-zoom');
+    const avail = document.getElementById('print-overlay').clientWidth - 16;
+    const pageW = 420 * 96 / 25.4;
+    z.style.zoom = fit ? Math.min(1, avail / pageW) : 1;
+}
+window.addEventListener('resize', () => { if (!document.getElementById('print-overlay').classList.contains('hidden')) applyPrintZoom(); });
+
+function renderPrint() {
+    document.getElementById('print-pages').innerHTML = printSheetTable() + printSheetGraph();
+}
+
+function printHeader(start) {
+    const s = state.settings;
+    const sel = state.printStart === 'latest' || !state.printStart ? '最新' : state.printStart;
+    return `<div class="sheet-title">OSRプロジェクト　水辺工事に伴う変状計測　測点変位管理表</div>
+    <div style="display:flex;align-items:center;gap:2.2mm;font-size:7pt;margin:1mm 0 0.6mm 0;">
+        <span style="color:#C00000;font-weight:700;">表示開始回▶</span>
+        <span style="background:#FFF2CC;color:#0000FF;font-weight:700;border:0.5px solid #808080;padding:0.2mm 3mm;font-size:8.5pt;">${sel}</span>
+        <span style="color:#C00000;font-weight:700;">第${start}〜${start + C.PRINT_COLS - 1}回（計測済${C.measuredCount(state)}回）</span>
+        <span style="margin-left:6mm;">XY注意(mm)</span><span style="background:#FFFF00;font-weight:700;padding:0.2mm 2.5mm;">${s.xyWarn}</span>
+        <span>XY管理</span><span style="background:#FF5050;font-weight:700;padding:0.2mm 2.5mm;">${s.xyLimit}</span>
+        <span style="margin-left:4mm;">Z注意</span><span style="background:#FFFF00;font-weight:700;padding:0.2mm 2.5mm;">${s.zWarn}</span>
+        <span>Z管理</span><span style="background:#FF5050;font-weight:700;padding:0.2mm 2.5mm;">${s.zLimit}</span>
+        <span style="color:#548235;">←「管理基準」で変更（初期値との差の絶対値で判定）</span>
+    </div>`;
+}
+
+function printSheetTable() {
+    const start = C.printStart(state, state.printStart);
+    const rounds = [];
+    for (let i = 0; i < C.PRINT_COLS; i++) rounds.push(start + i);
+    const asof = C.asOfDate(state);
+    // 列幅（Excel の列幅 A7 B6 C9 D7.5 E12.5 / F12.5 G6.5 H5 I6.5 J5）
+    const fixedW = [7, 6, 9, 7.5, 12.5], roundW = [12.5, 6.5, 5, 6.5, 5];
+    const totalW = fixedW.reduce((a, b) => a + b, 0) + C.PRINT_COLS * roundW.reduce((a, b) => a + b, 0);
+    let cols = fixedW.map(w => `<col style="width:${(w / totalW * 100).toFixed(3)}%">`).join('');
+    rounds.forEach(() => { cols += roundW.map(w => `<col style="width:${(w / totalW * 100).toFixed(3)}%">`).join(''); });
+
+    let h = `<div class="a3-page">${printHeader(start)}
+    <table class="sheet"><colgroup>${cols}</colgroup>
+    <tr><td colspan="4" style="border:none;text-align:left;font-size:8pt;font-weight:700;">${asof ? C.fmtJP(asof) + '時点' : ''}</td>
+        <th class="rb">初期値</th>${rounds.map(r => `<th colspan="5" class="rb">第${r}回</th>`).join('')}</tr>
+    <tr><td colspan="4" style="border:none;text-align:right;">計測日</td>
+        <td class="rb">${C.fmtSlash(state.initDate)}</td>${rounds.map(r => `<td colspan="5" class="rb">${C.fmtSlash(state.rounds[r - 1].date)}</td>`).join('')}</tr>
+    <tr style="height:7.5mm">
+        <th>測線</th><th>管理<br>番号</th><th>測点名</th><th>成分</th><th class="rb">座標値<br>（初期値）</th>
+        ${rounds.map(() => `<th>計測値</th><th>初期値<br>との差</th><th>変位<br>方向</th><th>前回<br>との差</th><th class="rb">変位<br>方向</th>`).join('')}
+    </tr>`;
+
+    // 測線ごとのグループ
+    const groups = [];
+    C.MAIN_POINTS.forEach(p => {
+        const g = groups.find(x => x.line === p.line);
+        if (g) g.pts.push(p); else groups.push({ line: p.line, pts: [p] });
+    });
+    groups.forEach(g => {
+        g.pts.forEach((p, pi) => {
+            C.COMPS.forEach((c, ci) => {
+                const top = pi === 0 && ci === 0 ? ' g-top' : '';
+                h += `<tr>`;
+                if (pi === 0 && ci === 0) h += `<td rowspan="${g.pts.length * 3}" class="bold${top}" style="background:#fff;white-space:normal;">${g.line === '計測用BM' ? '計測用<br>BM' : g.line}</td>`;
+                if (ci === 0) h += `<td rowspan="3" class="bold${top}" style="background:#fff;font-size:8pt;">${p.no}</td><td rowspan="3" class="bold${top}" style="background:#fff;">${p.name}</td>`;
+                h += `<td class="c-${c} bold${top}">${C.COMP_LABEL[c]}</td>`;
+                h += `<td class="nr rb r-${c} tx-${c}${top}">${f3(p[c])}</td>`;
+                rounds.forEach(r => {
+                    const cc = C.cellCalc(state, r, p, c);
+                    const lv = lvClass(cc.level);
+                    h += `<td class="nr r-${c}${top}">${f3(cc.value)}</td>`;
+                    h += `<td class="nr bold r-${c} tx-${c} ${lv}${top}">${fmm(cc.dInit)}</td>`;
+                    h += `<td class="bold r-${c} tx-${c} ${lv}${top}">${cc.dirInit}</td>`;
+                    h += `<td class="nr r-${c} tx-${c}${top}">${fmm(cc.dPrev)}</td>`;
+                    h += `<td class="rb r-${c} tx-${c}${top}">${cc.dirPrev}</td>`;
+                });
+                h += `</tr>`;
+            });
+        });
+    });
+    h += `<tr style="height:8mm"><td colspan="4" class="bold g-top">備考（工程）</td><td class="rb blue g-top" style="white-space:normal;">${esc(state.initRemarks)}</td>
+        ${rounds.map(r => `<td colspan="5" class="rb blue g-top" style="white-space:normal;">${esc(state.rounds[r - 1].remarks)}</td>`).join('')}</tr>
+    </table>`;
+
+    const s = state.settings;
+    h += `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-top:3mm;">
+        <div class="notes" style="margin-left:20%;">
+            <div style="font-weight:700;">水辺変状計測点　16点（ML1〜ML8、各測線 -1・-2）　／　計測用BM　2点（BM-1・BM-2）</div>
+            <div>◆　${C.fmtJP(state.initDate) || '○年○月○日'}計測した測点座標（X・Y・Z）を初期値とし、月1回の定期計測で変位を管理する。</div>
+            <div>◆　計測値は「計測値取込」から点名で自動反映（判定OKのみ）。直接打ち換えも可（全表に反映）。</div>
+            <div>◆　初期値との差が注意値（XY ${s.xyWarn}／Z ${s.zWarn}mm）以上で黄、管理値（XY ${s.xyLimit}／Z ${s.zLimit}mm）以上で赤。超過時は再計測のうえ元請へ報告。</div>
+            <div>◆　測点亡失・計測不能時は計測値を空欄とし、備考に「亡失」等を記入する。</div>
+        </div>
+        <div>
+            <table class="legend">
+                <tr style="background:#D9D9D9;font-weight:700;"><td>凡例</td><td style="min-width:30mm;">変位方向</td><td>＋側</td><td>−側</td></tr>
+                <tr class="r-x"><td class="c-x bold">X</td><td style="color:#1F4E79">南北方向の変位</td><td style="color:#1F4E79;font-weight:700">+ 北</td><td style="color:#1F4E79;font-weight:700">− 南</td></tr>
+                <tr class="r-y"><td class="c-y bold">Y</td><td style="color:#375623">東西方向の変位</td><td style="color:#375623;font-weight:700">+ 東</td><td style="color:#375623;font-weight:700">− 西</td></tr>
+                <tr class="r-z"><td class="c-z bold">Z (OP)</td><td style="color:#843C0C">上下方向の変位</td><td style="color:#843C0C;font-weight:700">↑ 上昇</td><td style="color:#843C0C;font-weight:700">↓ 沈下</td></tr>
+            </table>
+            <div style="font-size:6.8pt;margin-top:0.8mm;">変位なし：±0　／　差の単位：mm</div>
+        </div>
+    </div>
+    <div class="a3-foot"><span>1 / 2</span><span class="co">株式会社テクノライン</span></div>
+    </div>`;
+    return h;
+}
+
+function printSheetGraph() {
+    const asof = C.asOfDate(state);
+    let h = `<div class="a3-page">
+        <div class="sheet-title">OSRプロジェクト　水辺工事に伴う変状計測　経年変化グラフ（初期値との差 mm）</div>
+        <div style="display:flex;gap:8mm;font-size:7pt;margin:1mm 0 2mm 0;">
+            <span class="sheet-sub">${asof ? C.fmtJP(asof) + '時点' : ''}</span>
+            <span>青＝X（＋北）　緑＝Y（＋東）　橙＝Z（↑上昇）　破線＝XY ±管理値　点線＝Z ±管理値　横軸＝計測日（初期値〜最新の計測済期間）</span>
+        </div>
+        <div class="chart-grid">`;
+    C.GRAPH_POINTS.forEach(p => { h += `<div class="chart-cell">${svgChart(p, { w: 380, h: 236, fs: 9, fixed: true })}</div>`; });
+    h += `</div><div class="a3-foot"><span>2 / 2</span><span class="co">株式会社テクノライン</span></div></div>`;
+    return h;
+}
+
+function downloadPDF() {
+    const btn = document.getElementById('pdf-btn');
+    const label = btn.innerHTML;
+    btn.innerHTML = '⏳ 生成中...'; btn.disabled = true;
+    const zoomEl = document.getElementById('print-zoom');
+    const prevZoom = zoomEl.style.zoom;
+    zoomEl.style.zoom = 1;
+    const pages = Array.from(document.querySelectorAll('#print-pages .a3-page'));
+    pages.forEach(p => { p.style.boxShadow = 'none'; p.style.margin = '0'; });
+    const asof = C.asOfDate(state);
+    const opt = {
+        margin: 0,
+        filename: `OSR水辺変状計測_測点変位管理表_${asof || today()}.pdf`,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true, logging: false, scrollX: 0, scrollY: 0 },
+        jsPDF: { unit: 'mm', format: 'a3', orientation: 'landscape' }
+    };
+    const done = () => {
+        pages.forEach(p => { p.style.boxShadow = ''; p.style.margin = ''; });
+        zoomEl.style.zoom = prevZoom;
+        btn.innerHTML = label; btn.disabled = false;
+    };
+    // 各ページを1枚の画像としてA3横に貼る（ページ分割による白紙ページを防ぐ）
+    (async () => {
+        const canvases = [];
+        for (const p of pages) canvases.push(await html2pdf().set(opt).from(p).toCanvas().get('canvas'));
+        const pdf = await html2pdf().set(opt).from('<div></div>').toPdf().get('pdf');
+        pdf.deletePage(1);
+        canvases.forEach(cv => {
+            pdf.addPage('a3', 'landscape');
+            pdf.addImage(cv.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 420, 297);
+        });
+        pdf.save(opt.filename);
+    })().then(done).catch(err => {
+        console.error(err);
+        alert('PDFの生成に失敗しました。「🖨️ 印刷」からPDF保存をお試しください。');
+        done();
+    });
+}
+
+// ==================== 説明 ====================
+function openHelp() { document.getElementById('help-modal').classList.remove('hidden'); }
+function closeHelp() { document.getElementById('help-modal').classList.add('hidden'); }
+
+// ==================== 起動 ====================
+window.addEventListener('load', () => {
+    applyTheme();
+    if (!TABS.some(t => t.id === currentTab)) currentTab = 'table';
+    render();
+});
+</script>
+</body>
+</html>

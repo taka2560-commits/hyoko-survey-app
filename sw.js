@@ -1,9 +1,12 @@
-const CACHE_NAME = 'osr-elevation-cache-v2';
+const CACHE_NAME = 'osr-elevation-cache-v3';
 const urlsToCache = [
   './',
   './index.html',
   './manifest.json',
-  './icon.png'
+  './icon.png',
+  './henjo.html',
+  './henjo-core.js',
+  './henjo_haichi.jpg'
 ];
 
 self.addEventListener('install', event => {
