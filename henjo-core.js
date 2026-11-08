@@ -81,7 +81,8 @@
             settings: Object.assign({}, DEFAULT_SETTINGS),
             rounds: rounds,
             currentRound: 1,
-            printStart: 'latest'
+            printStart: 'latest',
+            printMap: true
         };
     }
 

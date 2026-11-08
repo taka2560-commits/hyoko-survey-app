@@ -185,6 +185,7 @@
         <label class="text-xs font-black flex items-center gap-1">表示開始回▶
             <select id="print-start" onchange="setPrintStart(this.value)" class="text-black text-xs font-black rounded px-1 py-1"></select>
         </label>
+        <label class="text-xs font-black flex items-center gap-1"><input type="checkbox" id="print-map" onchange="setPrintMap(this.checked)"> 配置図（全体図）を添付</label>
         <label class="text-xs font-black flex items-center gap-1"><input type="checkbox" id="print-fit" onchange="applyPrintZoom()" checked> 画面に合わせる</label>
         <div class="ml-auto flex gap-1.5">
             <button id="pdf-btn" onclick="downloadPDF()" class="bg-emerald-600 text-white font-black text-xs py-1.5 px-2.5 rounded border border-emerald-700 active:scale-95">📥 PDF保存</button>
@@ -588,8 +589,9 @@ function viewGraph() {
 
 // ==================== 配置図 ====================
 function viewMap() {
-    return `<div class="flex items-center gap-1.5 mb-2 text-[11px] font-black">
-        <span>水辺変状計測基準座標図（2026.10.24 / S=1:5000 A3）</span>
+    return `<div class="text-[11px] font-black mb-1">水辺変状計測基準座標図（2026.10.24 / 全体図 S=1:5000・拡大図 S=1:1500 / A3）</div>
+    <div class="flex items-center gap-1.5 mb-2 text-[11px] font-black whitespace-nowrap">
+        <a href="henjo_haichi.pdf" target="_blank" rel="noopener" class="px-2 py-1 rounded border-2 border-red-800 bg-red-600 text-white">📄 PDFを開く</a>
         <span class="ml-auto"></span>
         <button onclick="zoomMap(-1)" class="px-3 py-1 rounded border-2 border-slate-950 dark:border-slate-700 bg-slate-200 dark:bg-slate-800">−</button>
         <button onclick="zoomMap(0)" class="px-2 py-1 rounded border-2 border-slate-950 dark:border-slate-700 bg-slate-200 dark:bg-slate-800">全体</button>
@@ -598,7 +600,20 @@ function viewMap() {
     <div class="overflow-auto border border-slate-300 rounded bg-white" style="max-height: calc(100dvh - 190px)">
         <img src="henjo_haichi.jpg" alt="水辺変状計測基準座標図" style="width:${Math.round(mapZoom * 100)}%; max-width:none;">
     </div>
-    <p class="text-[10px] font-bold text-slate-500 mt-1">測点種別：BM-1＝4級基準点（金属鋲）、BM-2＝白鋲（金属標）、ML○-○＝赤鋲・手摺シール。</p>`;
+    <p class="text-[10px] font-bold text-slate-500 mt-1">測点種別：BM-1＝4級基準点（金属鋲）、BM-2＝白鋲（金属標）、ML○-○＝赤鋲・手摺シール。</p>
+    ${mapAreaTable()}`;
+}
+// 測点の場所（基準座標図の拡大図ごと）
+const MAP_AREAS = [
+    { area: '右上の拡大図（北端）', pts: 'BM-1、ML1-1、ML1-2、ML1-3、ML2-1' },
+    { area: '右下の拡大図（カーブ部）', pts: 'ML2-2、ML2-3、ML3-1、ML3-2、ML3-3、ML4-1、ML4-2、ML4-3' },
+    { area: '左上の拡大図（中間部）', pts: 'ML5-1、ML5-2、ML5-3、ML6-1、ML6-2、ML6-3、ML7-1、ML7-2、ML7-3' },
+    { area: '左下の拡大図（南端）', pts: 'BM-2、ML7-1〜ML7-3、ML8-1、ML8-2、ML8-3' }
+];
+function mapAreaTable() {
+    return `<h3 class="font-black text-xs mt-3 mb-1">測点の場所（図中の拡大図）</h3>
+    <table class="w-full text-[10px] border-collapse"><tbody>${MAP_AREAS.map(a => `<tr><td class="border border-slate-400 px-1.5 py-1 font-black whitespace-nowrap">${a.area}</td><td class="border border-slate-400 px-1.5 py-1">${a.pts}</td></tr>`).join('')}</tbody></table>
+    <p class="text-[10px] font-bold text-slate-500 mt-1">中央の全体図で各拡大図の範囲を示しています。A3出力で「配置図（全体図）を添付」にチェックすると3枚目に印刷されます。</p>`;
 }
 function zoomMap(d) {
     mapZoom = d === 0 ? 1 : Math.max(1, Math.min(5, mapZoom + d * 0.75));
@@ -702,6 +717,7 @@ function openPrint() {
     for (let i = 1; i <= C.ROUND_COUNT - C.PRINT_COLS + 1; i++) html += `<option value="${i}">${i}</option>`;
     sel.innerHTML = html;
     sel.value = String(state.printStart || 'latest');
+    document.getElementById('print-map').checked = !!state.printMap;
     renderPrint();
     document.getElementById('print-overlay').classList.remove('hidden');
     applyPrintZoom();
@@ -717,8 +733,10 @@ function applyPrintZoom() {
 }
 window.addEventListener('resize', () => { if (!document.getElementById('print-overlay').classList.contains('hidden')) applyPrintZoom(); });
 
+function setPrintMap(on) { state.printMap = !!on; saveState(); renderPrint(); }
 function renderPrint() {
-    document.getElementById('print-pages').innerHTML = printSheetTable() + printSheetGraph();
+    const total = state.printMap ? 3 : 2;
+    document.getElementById('print-pages').innerHTML = printSheetTable(total) + printSheetGraph(total) + (state.printMap ? printSheetMap() : '');
 }
 
 function printHeader(start) {
@@ -737,7 +755,7 @@ function printHeader(start) {
     </div>`;
 }
 
-function printSheetTable() {
+function printSheetTable(total) {
     const start = C.printStart(state, state.printStart);
     const rounds = [];
     for (let i = 0; i < C.PRINT_COLS; i++) rounds.push(start + i);
@@ -810,12 +828,12 @@ function printSheetTable() {
             <div style="font-size:6.8pt;margin-top:0.8mm;">変位なし：±0　／　差の単位：mm</div>
         </div>
     </div>
-    <div class="a3-foot"><span>1 / 2</span><span class="co">株式会社テクノライン</span></div>
+    <div class="a3-foot"><span>1 / ${total}</span><span class="co">株式会社テクノライン</span></div>
     </div>`;
     return h;
 }
 
-function printSheetGraph() {
+function printSheetGraph(total) {
     const asof = C.asOfDate(state);
     let h = `<div class="a3-page">
         <div class="sheet-title">OSRプロジェクト　水辺工事に伴う変状計測　経年変化グラフ（初期値との差 mm）</div>
@@ -825,8 +843,15 @@ function printSheetGraph() {
         </div>
         <div class="chart-grid">`;
     C.GRAPH_POINTS.forEach(p => { h += `<div class="chart-cell">${svgChart(p, { w: 380, h: 236, fs: 9, fixed: true })}</div>`; });
-    h += `</div><div class="a3-foot"><span>2 / 2</span><span class="co">株式会社テクノライン</span></div></div>`;
+    h += `</div><div class="a3-foot"><span>2 / ${total}</span><span class="co">株式会社テクノライン</span></div></div>`;
     return h;
+}
+
+// 3枚目：水辺変状計測基準座標図（全体図・拡大図）。図面の枠・表題欄ごとA3横1枚に配置
+function printSheetMap() {
+    return `<div class="a3-page" style="padding:0;">
+        <img src="henjo_haichi.jpg" alt="水辺変状計測基準座標図" style="width:420mm;height:297mm;display:block;object-fit:contain;">
+    </div>`;
 }
 
 function downloadPDF() {
@@ -853,6 +878,7 @@ function downloadPDF() {
     };
     // 各ページを1枚の画像としてA3横に貼る（ページ分割による白紙ページを防ぐ）
     (async () => {
+        await Promise.all(Array.from(document.querySelectorAll('#print-pages img')).map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; })));
         const canvases = [];
         for (const p of pages) canvases.push(await html2pdf().set(opt).from(p).toCanvas().get('canvas'));
         const pdf = await html2pdf().set(opt).from('<div></div>').toPdf().get('pdf');
