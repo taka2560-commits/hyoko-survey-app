@@ -45,6 +45,22 @@
         html.dark .r-z { background: #2a170b; }
 
         .pt-table td, .pt-table th { padding: 2px 4px; }
+
+        /* テンキー（標高管理と同じ配色） */
+        .key-btn { font-weight: 900; transition: transform .05s ease, background-color .05s ease; }
+        .key-btn:active { transform: scale(0.93); }
+        html:not(.dark) .key-btn { background: #f1f5f9; border: 2px solid #0f172a; color: #000; }
+        html:not(.dark) .key-btn:active { background: #cbd5e1 !important; }
+        html:not(.dark) .key-copy { background: #ffedd5 !important; border: 2px solid #c2410c !important; color: #ea580c !important; }
+        html:not(.dark) .key-enter { background: #10b981 !important; border: 2px solid #047857 !important; color: #fff !important; }
+        html:not(.dark) .key-clear { background: #fecaca !important; border: 2px solid #7f1d1d !important; color: #7f1d1d !important; }
+        html:not(.dark) .lcd-display { background: #bbf7d0; border: 3px solid #000; color: #14532d; }
+        html.dark .key-btn { background: #1e293b; border: 1px solid #475569; color: #f1f5f9; }
+        html.dark .key-btn:active { background: #475569 !important; }
+        html.dark .key-copy { background: #431407 !important; border: 1px solid #ea580c !important; color: #fdba74 !important; }
+        html.dark .key-enter { background: #059669 !important; border: 1px solid #10b981 !important; color: #fff !important; }
+        html.dark .key-clear { background: #450a0a !important; border: 1px solid #991b1b !important; color: #f87171 !important; }
+        html.dark .lcd-display { background: #0b1329; border: 2px solid #3b82f6; color: #4ade80; }
         .num { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 
         /* ==================== A3横 帳票（印刷タブの再現） ==================== */
@@ -123,17 +139,48 @@
 </div>
 
 <!-- ==================== 測点の直接入力（打ち換え） ==================== -->
-<div id="edit-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-3 bg-black/70">
-    <div class="bg-white dark:bg-slate-900 border-2 border-slate-950 dark:border-slate-700 rounded-2xl p-4 w-full max-w-sm shadow-2xl">
-        <div class="flex justify-between items-center mb-2">
-            <h3 id="edit-title" class="font-black text-sm"></h3>
-            <button onclick="closeEdit()" class="text-xl font-black">✕</button>
+<!-- 標高管理と同じテンキー入力。ENTER で X → Y → Z → 次の測点 へ進む -->
+<div id="edit-modal" class="hidden fixed inset-0 z-40 flex items-end md:items-center justify-center bg-black/70" onclick="if(event.target===this)closeEdit()">
+    <div class="bg-slate-100 dark:bg-slate-900 border-2 border-slate-950 dark:border-slate-700 rounded-t-2xl md:rounded-2xl p-2 w-full max-w-md shadow-2xl select-none max-h-[100dvh] overflow-y-auto" style="padding-bottom: max(8px, env(safe-area-inset-bottom));">
+        <div class="flex items-center gap-1 mb-1">
+            <button onclick="kpMovePoint(-1)" class="key-btn rounded-lg px-2.5 py-1.5 text-xs">◀</button>
+            <div class="flex-1 text-center leading-tight">
+                <div id="kp-title" class="font-black text-sm"></div>
+                <div id="kp-sub" class="text-[10px] font-bold text-slate-600 dark:text-slate-400"></div>
+            </div>
+            <button onclick="kpMovePoint(1)" class="key-btn rounded-lg px-2.5 py-1.5 text-xs">▶</button>
+            <button onclick="closeEdit()" class="ml-1 text-xl font-black px-1.5">✕</button>
         </div>
-        <p class="text-[10px] font-bold text-slate-600 dark:text-slate-400 mb-2">計測値（m）を直接入力します。空欄＝亡失・計測不能。直接入力した値は取込で上書きされません。</p>
-        <div id="edit-fields" class="space-y-2"></div>
-        <div class="flex flex-wrap gap-2 mt-3">
-            <button onclick="revertEdit()" id="edit-revert" class="bg-amber-500 text-black font-black text-xs py-2 px-2 rounded border-2 border-slate-950 active:scale-95">↺ 取込値に戻す</button>
-            <button onclick="saveEdit()" class="flex-1 bg-emerald-600 text-white font-black text-sm py-2 rounded border-2 border-emerald-800 active:scale-95">保存</button>
+        <!-- X / Y / Z の入力欄（タップで入力先を切替） -->
+        <div id="kp-fields" class="space-y-1 mb-1.5"></div>
+        <div class="flex justify-between items-center px-1 text-[10px] md:text-xs font-black">
+            <span>入力先: <strong id="kp-target" class="text-blue-700 dark:text-sky-400 text-xs md:text-sm"></strong></span>
+            <span id="kp-msg" class="text-red-600 dark:text-red-400"></span>
+        </div>
+        <div class="lcd-display w-full rounded-lg py-1 px-3 text-right text-xl md:text-2xl font-mono font-black my-1 leading-none h-[36px] flex items-center justify-end">
+            <span id="kp-lcd">0.000</span>
+        </div>
+        <div class="grid grid-cols-4 gap-1">
+            <button class="key-btn rounded-lg text-xl h-11" onclick="kpPress('7')">7</button>
+            <button class="key-btn rounded-lg text-xl h-11" onclick="kpPress('8')">8</button>
+            <button class="key-btn rounded-lg text-xl h-11" onclick="kpPress('9')">9</button>
+            <button class="key-btn key-clear rounded-lg text-base h-11" onclick="kpPress('C')">C</button>
+            <button class="key-btn rounded-lg text-xl h-11" onclick="kpPress('4')">4</button>
+            <button class="key-btn rounded-lg text-xl h-11" onclick="kpPress('5')">5</button>
+            <button class="key-btn rounded-lg text-xl h-11" onclick="kpPress('6')">6</button>
+            <button class="key-btn rounded-lg text-sm h-11" onclick="kpPress('BS')">BS</button>
+            <button class="key-btn rounded-lg text-xl h-11" onclick="kpPress('1')">1</button>
+            <button class="key-btn rounded-lg text-xl h-11" onclick="kpPress('2')">2</button>
+            <button class="key-btn rounded-lg text-xl h-11" onclick="kpPress('3')">3</button>
+            <button class="key-btn rounded-lg text-sm h-11" onclick="kpPress('+/-')">+/-</button>
+            <button class="key-btn key-copy rounded-lg text-[10px] font-black leading-tight h-11 flex flex-col justify-center items-center" onclick="kpPress('PREV')"><span>前回値</span><span>コピー</span></button>
+            <button class="key-btn rounded-lg text-xl h-11" onclick="kpPress('0')">0</button>
+            <button class="key-btn rounded-lg text-xl h-11" onclick="kpPress('.')">.</button>
+            <button class="key-btn key-enter rounded-lg text-sm font-black h-11" onclick="kpPress('ENTER')">ENTER</button>
+            <button class="key-btn key-copy rounded-lg text-[10px] font-black leading-tight h-9 flex flex-col justify-center items-center" onclick="kpPress('INIT')"><span>初期値</span><span>コピー</span></button>
+            <button class="key-btn rounded-lg text-[10px] font-black leading-tight h-9 flex flex-col justify-center items-center" onclick="kpPress('BLANK')"><span>空欄</span><span>(亡失)</span></button>
+            <button id="kp-revert" class="key-btn rounded-lg text-[10px] font-black leading-tight h-9 flex flex-col justify-center items-center" onclick="revertEdit()"><span>取込値に</span><span>戻す</span></button>
+            <button class="key-btn rounded-lg text-xs font-black h-9" onclick="closeEdit()">閉じる</button>
         </div>
     </div>
 </div>
@@ -151,6 +198,7 @@
             <ol class="list-decimal pl-5 space-y-1">
                 <li>TS・GNSSの観測結果を SIMA（.sim）または CSV で出力。点名は BM-1、ML1-1 などの表記（全角/半角・大小文字は自動補正）。</li>
                 <li>「取込」タブで回を選び、黄色の<b>計測日</b>を入力。</li>
+                <li>現場で直接入力する場合は「管理表」の<b>🔢 テンキーで計測値を入力</b>（またはカードをタップ）。ENTER で X→Y→Z→次の測点。「初期値コピー」「前回値コピー」で値を呼び出し、BS で末尾だけ打ち直すと早い。亡失は「空欄(亡失)」。</li>
                 <li>ファイルを読込むか、テキストを貼り付けて「▶ 取込実行」。SIMA・CSV・タブ区切りを自動判別。G00/Z00/A00/A99 行もそのままでよい。</li>
                 <li>見出しが「✓取込完了」、判定がすべて「OK」なら完了。OK以外は下の判定表を見て修正し再取込。</li>
                 <li>「管理表」で変状を確認。初期値との差が注意値以上＝黄、管理値以上＝赤。管理値超過は再計測のうえ元請へ報告。</li>
@@ -217,7 +265,6 @@ let currentTab = localStorage.getItem('henjo_tab') || 'table';
 let tableKind = 'main';     // main=提出18点 / aux=補助8点
 let graphKind = 'ml';       // ml=16点 / bm / aux
 let mapZoom = 1;
-let editingPoint = null;
 let isDark = localStorage.getItem('survey_dark_mode') === 'true';
 
 function loadState() {
@@ -317,6 +364,7 @@ function viewTable() {
         <span class="px-2 py-1 rounded ${al.limit ? 'lv-limit' : 'bg-slate-100 dark:bg-slate-800'}">管理値超過 ${al.limit}</span>
         <span class="px-2 py-1 rounded ${al.warn ? 'lv-warn' : 'bg-slate-100 dark:bg-slate-800'}">注意値超過 ${al.warn}</span>
     </div>
+    <button onclick="openKeypadNext()" class="w-full mb-2 bg-emerald-600 text-white font-black text-sm py-2.5 rounded-lg border-2 border-emerald-800 shadow active:scale-95">🔢 テンキーで計測値を入力（${tableKind === 'main' ? '提出18点' : '補助点8点'}）</button>
     <label class="flex items-center gap-1 mb-2 text-[11px] font-black">備考（工程）
         <input type="text" value="${esc(round.remarks)}" onchange="setRemarks(this.value)" placeholder="例：○○工事開始、ML3-2亡失" class="flex-1 bg-white dark:bg-slate-900 border-2 border-slate-950 dark:border-slate-700 rounded px-2 py-1 text-xs text-blue-700 dark:text-sky-300">
     </label>
@@ -347,7 +395,7 @@ function viewTable() {
         html += `</tbody></table></div>`;
     });
     html += `</div>
-    <p class="text-[10px] font-bold text-slate-500 mt-2">単位：差は mm（四捨五入）。カードをタップすると計測値を直接入力（打ち換え）できます。</p>`;
+    <p class="text-[10px] font-bold text-slate-500 mt-2">単位：差は mm（四捨五入）。カードをタップするとその測点からテンキー入力できます。ENTER で X → Y → Z → 次の測点へ進みます。</p>`;
     return html;
 }
 
@@ -356,55 +404,187 @@ function setRemarks(v) {
     saveState();
 }
 
-// ---------- 直接入力 ----------
-function openEdit(name) {
-    editingPoint = C.findPoint(name);
+// ---------- テンキー入力（標高管理と同じ操作） ----------
+// ENTER で X → Y → Z → 次の測点。値は直接入力（打ち換え）として保存し、取込で上書きされない。
+let kp = null;
+function kpPoints() { return tableKind === 'main' ? C.MAIN_POINTS : C.AUX_POINTS; }
+
+function openEdit(name, comp) {
+    const list = kpPoints();
+    let idx = list.findIndex(p => p.name === name);
+    if (idx < 0) idx = 0;
+    kp = { list: list, idx: idx, comp: comp || 'x', buf: {}, fresh: true, msg: '' };
+    kpLoad();
+    if (comp) kp.comp = comp;
+    document.getElementById('edit-modal').classList.remove('hidden');
+    kpRender();
+}
+// 「テンキー入力」ボタン：未入力の最初の測点・成分から開始
+function openKeypadNext() {
+    const list = kpPoints(), r = state.currentRound;
+    for (const p of list) {
+        for (const c of C.COMPS) {
+            if (C.getValue(state, r, p.name, c) === null) { openEdit(p.name, c); return; }
+        }
+    }
+    openEdit(list[0].name, 'x');
+}
+function kpLoad() {
+    const p = kp.list[kp.idx], r = state.currentRound;
+    C.COMPS.forEach(c => {
+        const v = C.getValue(state, r, p.name, c);
+        kp.buf[c] = v === null ? '' : v.toFixed(3);
+    });
+    kp.comp = 'x';
+    kp.fresh = true;
+}
+function kpParse(t) {
+    t = String(t).trim();
+    if (t === '') return null;
+    const n = C.toNumber(t);
+    return C.isNum(n) ? n : NaN;
+}
+// 入力中の成分を保存。数値でなければ false
+function kpCommit(c) {
+    const p = kp.list[kp.idx], r = state.currentRound;
+    const v = kpParse(kp.buf[c]);
+    if (Number.isNaN(v)) { kp.msg = `${C.COMP_LABEL[c]} が数値ではありません`; return false; }
+    const cur = C.getValue(state, r, p.name, c);
+    const same = (cur === null && v === null) || (cur !== null && v !== null && Math.abs(cur - v) < 1e-9);
+    if (!same) { C.setManual(state, r, p.name, c, v); saveState(); }
+    if (v !== null) kp.buf[c] = v.toFixed(3);
+    return true;
+}
+function kpSelect(c) {
+    if (c === kp.comp) return;
+    if (!kpCommit(kp.comp)) { kpRender(); return; }
+    kp.comp = c; kp.fresh = true; kp.msg = '';
+    kpRender();
+}
+function kpMovePoint(d) {
+    if (!kpCommit(kp.comp)) { kpRender(); return; }
+    const n = kp.idx + d;
+    if (n < 0 || n >= kp.list.length) { kp.msg = d > 0 ? '最後の測点です' : '最初の測点です'; kpRender(); return; }
+    kp.idx = n; kp.msg = '';
+    kpLoad();
+    kpRender();
+    render();
+}
+function kpPrevValue(p, c) {
     const r = state.currentRound;
-    document.getElementById('edit-title').innerText = `第${r}回　${editingPoint.no ? editingPoint.no + ' ' : ''}${editingPoint.name}`;
-    document.getElementById('edit-fields').innerHTML = C.COMPS.map(c => {
-        const v = C.getValue(state, r, editingPoint.name, c);
-        return `<div class="flex items-center gap-1.5">
-            <span class="c-${c} w-14 text-center text-xs font-black rounded py-1.5">${C.COMP_LABEL[c]}</span>
-            <input id="edit-${c}" type="text" inputmode="decimal" value="${v === null ? '' : v.toFixed(3)}" placeholder="${f3(editingPoint[c])}"
-                class="flex-1 min-w-0 num bg-white dark:bg-slate-950 border-2 border-slate-950 dark:border-slate-700 rounded px-2 py-1.5 text-sm font-black">
-            <button onclick="copyInit('${c}')" class="text-[10px] font-black px-1.5 py-1.5 rounded border border-slate-500 bg-slate-100 dark:bg-slate-800 leading-tight">初期値<br>コピー</button>
+    return r === 1 ? p[c] : C.getValue(state, r - 1, p.name, c);   // 第1回の前回＝初期値
+}
+function kpPress(key) {
+    if (!kp) return;
+    const c = kp.comp, p = kp.list[kp.idx];
+    let b = kp.buf[c];
+    kp.msg = '';
+    if (/^[0-9]$/.test(key)) {
+        if (kp.fresh) { b = ''; kp.fresh = false; }
+        if (b.replace(/[^0-9]/g, '').length < 12) b += key;
+    } else if (key === '.') {
+        if (kp.fresh) { b = ''; kp.fresh = false; }
+        if (b.indexOf('.') < 0) b += (b === '' || b === '-') ? '0.' : '.';
+    } else if (key === '+/-') {
+        kp.fresh = false;
+        b = b.startsWith('-') ? b.slice(1) : '-' + b;
+    } else if (key === 'BS') {
+        kp.fresh = false;
+        b = b.slice(0, -1);
+    } else if (key === 'C') {
+        kp.fresh = false;
+        b = '';
+    } else if (key === 'INIT') {
+        kp.fresh = false;
+        b = p[c].toFixed(3);
+    } else if (key === 'PREV') {
+        const pv = kpPrevValue(p, c);
+        if (pv === null) { kp.msg = '前回値がありません'; kpRender(); return; }
+        kp.fresh = false;
+        b = pv.toFixed(3);
+    } else if (key === 'BLANK') {
+        kp.buf[c] = '';
+        return kpPress('ENTER');
+    } else if (key === 'ENTER') {
+        if (!kpCommit(c)) { kpRender(); return; }
+        const ci = C.COMPS.indexOf(c);
+        if (ci < 2) {
+            kp.comp = C.COMPS[ci + 1]; kp.fresh = true;
+        } else if (kp.idx < kp.list.length - 1) {
+            kp.idx++; kpLoad();
+        } else {
+            const label = tableKind === 'main' ? '提出18点' : '補助点8点';
+            closeEdit();
+            alert(`🎉 第${state.currentRound}回 ${label}の入力が最後の測点まで終わりました。`);
+            return;
+        }
+        render();
+        kpRender();
+        return;
+    }
+    kp.buf[c] = b;
+    kpRender();
+}
+function kpRender() {
+    const p = kp.list[kp.idx], r = state.currentRound;
+    const round = state.rounds[r - 1];
+    const manual = Object.values(round.src[p.name] || {}).indexOf('manual') >= 0;
+    document.getElementById('kp-title').innerText = `第${r}回　${p.no ? p.no + ' ' : ''}${p.name}`;
+    document.getElementById('kp-sub').innerHTML = `${esc(p.line)}　${kp.idx + 1} / ${kp.list.length}${manual ? '　<span class="text-blue-600 dark:text-sky-400">✎直接入力あり</span>' : ''}`;
+    document.getElementById('kp-fields').innerHTML = C.COMPS.map(c => {
+        const on = c === kp.comp;
+        const v = kpParse(kp.buf[c]);
+        let d = null;
+        if (C.isNum(v)) d = C.excelRound0((v - p[c]) * 1000);
+        const lv = C.level(d, state.settings, c);
+        const shown = kp.buf[c] === '' ? '<span class="text-slate-400 font-sans text-xs">未入力</span>' : esc(kp.buf[c]);
+        return `<div onclick="kpSelect('${c}')" class="flex items-center gap-1 rounded-lg border-2 ${on ? 'border-blue-600 ring-2 ring-blue-400 bg-yellow-100 dark:bg-blue-950' : 'border-slate-400 dark:border-slate-700 bg-white dark:bg-slate-950'} px-1 py-0 min-h-[40px] cursor-pointer">
+            <span class="c-${c} w-12 text-center text-[11px] font-black rounded py-0.5 shrink-0">${C.COMP_LABEL[c]}</span>
+            <div class="flex-1 min-w-0 text-right leading-none">
+                <span class="num text-[9px] text-slate-500 mr-1">初期 ${f3(p[c])}</span><br class="sm:hidden">
+                <span class="num font-black text-base">${shown}</span>
+            </div>
+            <span class="num w-14 text-right font-black text-xs rounded px-1 py-1 ${lvClass(lv)}">${d === null ? '' : d + ' ' + C.direction(d, c)}</span>
         </div>`;
     }).join('');
-    const hasImport = !!(state.rounds[r - 1].src[name]);
-    document.getElementById('edit-revert').style.display = hasImport ? '' : 'none';
-    document.getElementById('edit-modal').classList.remove('hidden');
+    document.getElementById('kp-target').innerText = `${p.name}　${C.COMP_LABEL[kp.comp]}`;
+    const b = kp.buf[kp.comp];
+    document.getElementById('kp-lcd').innerText = b === '' ? '0.000' : b;
+    document.getElementById('kp-lcd').style.opacity = (b === '' || kp.fresh) ? '0.55' : '1';
+    document.getElementById('kp-msg').innerText = kp.msg || '';
+    const hasImport = !!C.parseImport(round.importText, state.settings).okMap[p.name];
+    document.getElementById('kp-revert').style.visibility = hasImport ? 'visible' : 'hidden';
 }
-function copyInit(c) {
-    const el = document.getElementById('edit-' + c);
-    el.value = editingPoint[c].toFixed(3);
-    el.focus();
-}
-function closeEdit() { document.getElementById('edit-modal').classList.add('hidden'); editingPoint = null; }
-function saveEdit() {
-    const r = state.currentRound;
-    const vals = {};
-    for (const c of C.COMPS) {
-        const t = C.toHalfWidth(document.getElementById('edit-' + c).value).trim();
-        if (t === '') { vals[c] = null; continue; }
-        const n = C.toNumber(t);
-        if (!C.isNum(n)) { alert(`${C.COMP_LABEL[c]} が数値ではありません：${t}`); return; }
-        vals[c] = n;
+function closeEdit() {
+    if (kp) {
+        const b = kpParse(kp.buf[kp.comp]);
+        if (!Number.isNaN(b)) kpCommit(kp.comp);   // 入力途中の値も保存（数値でなければ破棄）
     }
-    for (const c of C.COMPS) {
-        const cur = C.getValue(state, r, editingPoint.name, c);
-        const changed = !((cur === null && vals[c] === null) || (cur !== null && vals[c] !== null && Math.abs(cur - vals[c]) < 1e-9));
-        if (changed) C.setManual(state, r, editingPoint.name, c, vals[c]);
-    }
-    saveState();
-    closeEdit();
+    document.getElementById('edit-modal').classList.add('hidden');
+    kp = null;
     render();
 }
 function revertEdit() {
-    C.revertToImport(state, state.currentRound, editingPoint.name);
+    const p = kp.list[kp.idx];
+    C.revertToImport(state, state.currentRound, p.name);
     saveState();
-    closeEdit();
+    kpLoad();
+    kpRender();
     render();
 }
+// PC のキーボードでも入力可
+document.addEventListener('keydown', e => {
+    if (!kp) return;
+    const k = e.key;
+    let key = null;
+    if (/^[0-9]$/.test(k) || k === '.') key = k;
+    else if (k === '-') key = '+/-';
+    else if (k === 'Backspace') key = 'BS';
+    else if (k === 'Delete') key = 'C';
+    else if (k === 'Enter') key = 'ENTER';
+    else if (k === 'Escape') { closeEdit(); e.preventDefault(); return; }
+    if (key) { e.preventDefault(); kpPress(key); }
+});
 
 // ==================== 計測値取込 ====================
 function judgeClass(j) {
